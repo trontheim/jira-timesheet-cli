@@ -667,8 +667,14 @@ program
     }
   });
 
-program.parse(process.argv);
+// Export for testing
+export { JiraTimesheetCLI };
 
-if (!process.argv.slice(2).length) {
-  program.outputHelp();
+// Only run CLI if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  program.parse(process.argv);
+
+  if (!process.argv.slice(2).length) {
+    program.outputHelp();
+  }
 }

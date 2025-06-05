@@ -1,5 +1,23 @@
 node_modules
 .DS_Store
+
 *.md
+*.txt
+*.json
 !README.md
-*.sh
+!package.json
+!package-lock.json
+
+
+# Test coverage and reports
+coverage/
+.nyc_output/
+test-results.json
+test-results.html
+
+# Vitest cache
+.vitest/
+
+# Test artifacts
+*.test.log
+*.spec.log
