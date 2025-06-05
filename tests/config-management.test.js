@@ -25,8 +25,6 @@ describe('Configuration Management', () => {
     // Setup mock file system with default structure
     mockFileSystem = setupMockFileSystem();
     
-    // Override configPath to use mock path
-    cli.configPath = '/mock/home/.config/.jira/.config.yml';
   });
 
   afterEach(() => {
@@ -91,7 +89,7 @@ describe('Configuration Management', () => {
   describe('loadConfig', () => {
     describe('successful loading', () => {
       it('should load YAML configuration', async () => {
-        const mockConfig = {
+        const mockConfigData = {
           server: 'https://test.atlassian.net',
           login: 'test@example.com',
           project: { key: 'TEST' },
@@ -99,20 +97,21 @@ describe('Configuration Management', () => {
           auth_type: 'basic'
         };
         
-        // Restore and setup fresh mock file system
+        // Setup mock file system with the config file
         mockFs.restore();
         mockFs({
-          '/mock/config.yml': yaml.dump(mockConfig)
+          '/mock/config.yml': yaml.dump(mockConfigData),
+          '/tmp': {}
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
 
-        const result = await cli.loadConfig();
+        const result = await localCli.loadConfig('/mock/config.yml');
 
-        expect(cli.config).toEqual(mockConfig);
-        expect(cli.apiToken).toBe('test-token');
-        expect(result).toEqual(mockConfig);
+        expect(localCli.config).toEqual(mockConfigData);
+        expect(localCli.apiToken).toBe('test-token');
+        expect(result).toEqual(mockConfigData);
       });
 
       it('should load JSON configuration', async () => {
@@ -128,12 +127,13 @@ describe('Configuration Management', () => {
           '/mock/config.yml': JSON.stringify(mockConfig)
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
 
-        const result = await cli.loadConfig();
+        const result = await localCli.loadConfig('/mock/config.yml');
 
         expect(result).toEqual(mockConfig);
+        expect(localCli.config).toEqual(mockConfig);
       });
 
       it('should use custom config path', async () => {
@@ -176,10 +176,10 @@ describe('Configuration Management', () => {
           '/mock/config.yml': yaml.dump(mockConfig)
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         delete process.env.JIRA_API_TOKEN;
 
-        await expect(cli.loadConfig()).rejects.toThrow(
+        await expect(localCli.loadConfig('/mock/config.yml')).rejects.toThrow(
           'JIRA_API_TOKEN environment variable not set'
         );
       });
@@ -219,10 +219,10 @@ describe('Configuration Management', () => {
           '/mock/config.yml': ''
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
   
-        const result = await cli.loadConfig();
+        const result = await localCli.loadConfig('/mock/config.yml');
         expect(result).toBeUndefined();
       });
 
@@ -233,11 +233,11 @@ describe('Configuration Management', () => {
           '/mock/config.yml': 'just a string'
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
 
-        const result = await cli.loadConfig();
-        expect(cli.config).toBe('just a string');
+        const result = await localCli.loadConfig('/mock/config.yml');
+        expect(localCli.config).toBe('just a string');
       });
 
       it('should handle file system errors', async () => {
@@ -265,10 +265,10 @@ describe('Configuration Management', () => {
           '/mock/config.yml': yaml.dump(mockConfig)
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = '';
 
-        await expect(cli.loadConfig()).rejects.toThrow(
+        await expect(localCli.loadConfig('/mock/config.yml')).rejects.toThrow(
           'JIRA_API_TOKEN environment variable not set'
         );
       });
@@ -282,11 +282,11 @@ describe('Configuration Management', () => {
           '/mock/config.yml': yaml.dump(mockConfig)
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = '   ';
 
-        const result = await cli.loadConfig();
-        expect(cli.apiToken).toBe('   ');
+        const result = await localCli.loadConfig('/mock/config.yml');
+        expect(localCli.apiToken).toBe('   ');
       });
 
       it('should preserve API token with special characters', async () => {
@@ -299,11 +299,11 @@ describe('Configuration Management', () => {
           '/mock/config.yml': yaml.dump(mockConfig)
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = specialToken;
 
-        await cli.loadConfig();
-        expect(cli.apiToken).toBe(specialToken);
+        await localCli.loadConfig('/mock/config.yml');
+        expect(localCli.apiToken).toBe(specialToken);
       });
     });
 
@@ -371,11 +371,12 @@ describe('Configuration Management', () => {
         '/mock/config.yml': JSON.stringify(minimalConfig)
       });
       
-      cli.configPath = '/mock/config.yml';
+      const localCli = new JiraTimesheetCLI();
       process.env.JIRA_API_TOKEN = 'test-token';
 
-      const result = await cli.loadConfig();
+      const result = await localCli.loadConfig('/mock/config.yml');
       expect(result).toEqual(minimalConfig);
+      expect(localCli.config).toEqual(minimalConfig);
     });
 
     it('should handle config with extra fields', async () => {
@@ -397,11 +398,12 @@ describe('Configuration Management', () => {
         '/mock/config.yml': JSON.stringify(extendedConfig)
       });
       
-      cli.configPath = '/mock/config.yml';
+      const localCli = new JiraTimesheetCLI();
       process.env.JIRA_API_TOKEN = 'test-token';
 
-      const result = await cli.loadConfig();
+      const result = await localCli.loadConfig('/mock/config.yml');
       expect(result).toEqual(extendedConfig);
+      expect(localCli.config).toEqual(extendedConfig);
     });
 
     it('should handle different project configurations', async () => {
@@ -424,11 +426,12 @@ describe('Configuration Management', () => {
           '/mock/config.yml': JSON.stringify(fullConfig)
         });
         
-        cli.configPath = '/mock/config.yml';
+        const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
 
-        const result = await cli.loadConfig();
+        const result = await localCli.loadConfig('/mock/config.yml');
         expect(result.project).toEqual(projectConfig.project);
+        expect(localCli.config.project).toEqual(projectConfig.project);
       }
     });
   });
@@ -532,4 +535,5 @@ describe('Configuration Management', () => {
       consoleSpy.mockRestore();
     });
   });
+
 });
