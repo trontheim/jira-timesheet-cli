@@ -1,0 +1,40 @@
+{
+  "name": "jira-timesheet-cli",
+  "version": "1.0.0",
+  "description": "CLI tool to generate timesheets from Jira worklogs via REST API",
+  "type": "module",
+  "main": "jira_timesheet_cli.js",
+  "bin": {
+    "jira-timesheet": "./jira_timesheet_cli.js"
+  },
+  "scripts": {
+    "start": "node jira_timesheet_cli.js",
+    "build": "tsc",
+    "dev": "node --loader ts-node/esm jira_timesheet_cli.ts"
+  },
+  "keywords": [
+    "jira",
+    "timesheet",
+    "worklog",
+    "cli",
+    "rest-api",
+    "atlassian"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "commander": "^11.1.0",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.3",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
