@@ -21,3 +21,22 @@ test-results.html
 # Test artifacts
 *.test.log
 *.spec.log
+
+# Build artifacts (esbuild + pkg)
+# esbuild bundle output
+dist/
+*.bundle.cjs
+
+# pkg binary output
+binaries/
+*.exe
+*.app
+*.deb
+*.rpm
+*.dmg
+*.pkg
+
+# Temporary build files
+.build/
+*.tmp
+*.temp

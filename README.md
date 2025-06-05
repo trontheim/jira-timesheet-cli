@@ -18,7 +18,28 @@ Ein Node.js Kommandozeilen-Tool zur Generierung von Stundenzetteln aus Jira-Work
 
 ## 🚀 Installation
 
-### Option 1: Lokale Installation
+### Option 1: Vorkompilierte Binaries (Empfohlen)
+```bash
+# Repository klonen
+git clone <repository-url>
+cd jira-timesheet-cli
+
+# Dependencies installieren
+npm install
+
+# Cross-Platform Binaries erstellen
+npm run build:all
+
+# Binary verwenden (Linux/macOS)
+./binaries/jira-timesheet-cli-linux-x64
+./binaries/jira-timesheet-cli-darwin-x64
+./binaries/jira-timesheet-cli-darwin-arm64
+
+# Binary verwenden (Windows)
+./binaries/jira-timesheet-cli-win-x64.exe
+```
+
+### Option 2: Lokale Installation
 ```bash
 # Repository klonen
 git clone <repository-url>
@@ -31,7 +52,7 @@ npm install
 npm link
 ```
 
-### Option 2: NPM Package (falls veröffentlicht)
+### Option 3: NPM Package (falls veröffentlicht)
 ```bash
 npm install -g jira-timesheet-cli
 ```
@@ -411,6 +432,77 @@ jira-timesheet config
 jira-timesheet test
 ```
 
+## 🔨 Build-Prozess
+
+Das Projekt verwendet **esbuild** für optimales Bundling und **pkg** für die Erstellung von Cross-Platform-Binaries.
+
+### Build-Scripts
+
+```bash
+# Bundle mit esbuild erstellen
+npm run bundle
+
+# Cross-Platform Binaries erstellen
+npm run build:binaries
+
+# Kompletter Build-Prozess (Bundle + Binaries)
+npm run build:all
+
+# Build-Artefakte löschen
+npm run clean
+```
+
+### Build-Konfiguration
+
+**esbuild Konfiguration** ([`esbuild.config.js`](esbuild.config.js)):
+- Bundelt ES Modules für Node.js
+- Optimiert für Node.js 18+
+- Tree-shaking für kleinere Bundle-Größe
+- Behält Debugging-Informationen bei
+
+**pkg Konfiguration** ([`package.json`](package.json) `pkg` Sektion):
+- Erstellt Binaries für Linux, macOS (x64/ARM64), Windows
+- Komprimiert Binaries für kleinere Dateigröße
+- Verwendet Node.js 18 Runtime
+
+### Erstellte Artefakte
+
+Nach `npm run build:all`:
+
+```
+dist/
+├── jira_timesheet_cli.bundle.cjs   # esbuild Bundle
+
+binaries/
+├── jira-timesheet-cli-linux-x64    # Linux x64 Binary
+├── jira-timesheet-cli-darwin-x64    # macOS x64 Binary
+├── jira-timesheet-cli-darwin-arm64  # macOS ARM64 Binary
+└── jira-timesheet-cli-win-x64.exe  # Windows x64 Binary
+```
+
+### Binary-Verwendung
+
+```bash
+# Linux
+./binaries/jira-timesheet-cli-linux-x64 generate -p TEST
+
+# macOS (Intel)
+./binaries/jira-timesheet-cli-darwin-x64 generate -p TEST
+
+# macOS (Apple Silicon)
+./binaries/jira-timesheet-cli-darwin-arm64 generate -p TEST
+
+# Windows
+./binaries/jira-timesheet-cli-win-x64.exe generate -p TEST
+```
+
+**Vorteile der Binaries:**
+- ✅ **Keine Node.js Installation erforderlich** - Standalone Executables
+- ✅ **Cross-Platform** - Windows, macOS, Linux Support
+- ✅ **Optimierte Performance** - Vorkompiliert und gebündelt
+- ✅ **Einfache Distribution** - Einzelne Datei pro Platform
+- ✅ **Konsistente Umgebung** - Eingebaute Node.js Runtime
+
 ## 🤝 Entwicklung
 
 ```bash
@@ -426,6 +518,9 @@ node jira_timesheet_cli.js generate -p TEST
 
 # Global installieren (für Entwicklung)
 npm link
+
+# Build testen
+npm run build:all
 ```
 
 ## 📝 Lizenz
