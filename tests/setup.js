@@ -14,13 +14,21 @@ export const server = setupServer(...handlers);
 // Start MSW server before all tests
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'warn' });
+  
+  // Environment-Isolation: Setze kritische Environment-Variablen für Tests
+  // Diese werden automatisch in afterEach wieder zurückgesetzt
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('JIRA_API_TOKEN', 'mock-api-token');
+  vi.stubEnv('JIRA_CONFIG_FILE', undefined); // Verhindert Host-Einflüsse durch lokale Config-Dateien
 });
 
-// Reset handlers and mock-fs after each test
+// Reset handlers, mock-fs and environment variables after each test
 afterEach(() => {
   server.resetHandlers();
   mockFs.restore();
   vi.restoreAllMocks();
+  // Environment-Cleanup: Entfernt alle Environment-Variable-Stubs für saubere Test-Isolation
+  vi.unstubAllEnvs();
 });
 
 // Close MSW server after all tests
@@ -91,9 +99,22 @@ vi.mock('commander', () => {
   };
 });
 
-// Setup environment variables for tests
-process.env.NODE_ENV = 'test';
-process.env.JIRA_API_TOKEN = 'mock-api-token';
+/**
+ * Hilfsfunktion zum Stubben von test-spezifischen Environment-Variablen
+ * Kann in individuellen Tests verwendet werden, um zusätzliche Environment-Variablen zu setzen
+ *
+ * @param {Object} envVars - Objekt mit Environment-Variablen als Key-Value-Paare
+ * @example
+ * stubTestEnv({
+ *   CUSTOM_VAR: 'test-value',
+ *   DEBUG: 'true'
+ * });
+ */
+export const stubTestEnv = (envVars) => {
+  Object.entries(envVars).forEach(([key, value]) => {
+    vi.stubEnv(key, value);
+  });
+};
 
 // Global test utilities
 global.createMockResponse = (data, status = 200) => ({
