@@ -11,7 +11,7 @@ import { JIRA_BASE_URL } from './mocks/handlers.js';
 import { setupMockFileSystem } from './test-utils.js';
 
 // Import the class to test
-const { JiraTimesheetCLI } = await import('../jira_timesheet_cli.js');
+const { JiraTimesheetCLI } = await import('../timesheet.js');
 
 describe('JiraTimesheetCLI', () => {
   let cli;

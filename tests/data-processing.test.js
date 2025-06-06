@@ -13,7 +13,7 @@ import {
 } from './test-utils.js';
 import { JIRA_BASE_URL } from './mocks/handlers.js';
 
-const { JiraTimesheetCLI } = await import('../jira_timesheet_cli.js');
+const { JiraTimesheetCLI } = await import('../timesheet.js');
 
 describe('Data Processing', () => {
   let cli;

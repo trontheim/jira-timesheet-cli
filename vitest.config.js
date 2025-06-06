@@ -23,7 +23,7 @@ export default defineConfig({
         'build/**'
       ],
       include: [
-        'jira_timesheet_cli.js',
+        'timesheet.js',
         'src/**/*.js',
         'lib/**/*.js'
       ],

@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Import the class to test
-const { JiraTimesheetCLI } = await import('../jira_timesheet_cli.js');
+const { JiraTimesheetCLI } = await import('../timesheet.js');
 
 describe('Date Parsing', () => {
   let cli;

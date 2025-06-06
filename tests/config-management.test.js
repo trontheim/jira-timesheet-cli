@@ -10,7 +10,7 @@ import path from 'path';
 import { mockFs } from './setup.js';
 import { setupMockFileSystem } from './test-utils.js';
 
-const { JiraTimesheetCLI } = await import('../jira_timesheet_cli.js');
+const { JiraTimesheetCLI } = await import('../timesheet.js');
 
 describe('Configuration Management', () => {
   let cli;

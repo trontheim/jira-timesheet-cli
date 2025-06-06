@@ -3,20 +3,20 @@
   "version": "1.0.0",
   "description": "CLI tool to generate timesheets from Jira worklogs via REST API",
   "type": "module",
-  "main": "jira_timesheet_cli.js",
+  "main": "timesheet.js",
   "bin": {
-    "jira-timesheet": "./jira_timesheet_cli.js"
+    "timesheet": "./timesheet.js"
   },
   "scripts": {
-    "start": "node jira_timesheet_cli.js",
+    "start": "node timesheet.js",
     "build": "tsc",
-    "dev": "node --loader ts-node/esm jira_timesheet_cli.ts",
+    "dev": "node --loader ts-node/esm timesheet.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "bundle": "node esbuild.config.js",
-    "build:binaries": "pkg dist/jira_timesheet_cli.bundle.cjs --config pkg.config.json",
+    "build:binaries": "pkg dist/timesheet.bundle.cjs --config pkg.config.json",
     "build:all": "npm run bundle && npm run build:binaries",
     "clean": "rm -rf dist binaries",
     "prebuild:binaries": "npm run bundle"
@@ -57,7 +57,7 @@
   },
   "pkg": {
     "scripts": [
-      "dist/jira_timesheet_cli.bundle.cjs"
+      "dist/timesheet.bundle.cjs"
     ],
     "assets": [],
     "targets": [

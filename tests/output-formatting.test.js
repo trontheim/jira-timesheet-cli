@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mockFs } from './setup.js';
 import { validateCsvOutput, validateMarkdownOutput, setupMockFileSystem } from './test-utils.js';
 
-const { JiraTimesheetCLI } = await import('../jira_timesheet_cli.js');
+const { JiraTimesheetCLI } = await import('../timesheet.js');
 
 describe('Output Formatting', () => {
   let cli;

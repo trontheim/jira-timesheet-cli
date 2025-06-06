@@ -31,12 +31,12 @@ npm install
 npm run build:all
 
 # Binary verwenden (Linux/macOS)
-./binaries/jira-timesheet-cli-linux-x64
-./binaries/jira-timesheet-cli-darwin-x64
-./binaries/jira-timesheet-cli-darwin-arm64
+./binaries/timesheet-linux-x64
+./binaries/timesheet-darwin-x64
+./binaries/timesheet-darwin-arm64
 
 # Binary verwenden (Windows)
-./binaries/jira-timesheet-cli-win-x64.exe
+./binaries/timesheet-win-x64.exe
 ```
 
 ### Option 2: Lokale Installation
@@ -54,7 +54,7 @@ npm link
 
 ### Option 3: NPM Package (falls veröffentlicht)
 ```bash
-npm install -g jira-timesheet-cli
+npm install -g timesheet-cli
 ```
 
 ### Dependencies
@@ -77,63 +77,63 @@ Das Tool verwendet folgende Node.js Packages:
 ### Basis-Kommandos
 ```bash
 # Stundenzettel für Standard-Projekt (aus Config)
-jira-timesheet generate
+timesheet generate
 # Oder mit Alias
-jira-timesheet gen
+timesheet gen
 
 # Für spezifisches Projekt
-jira-timesheet generate -p TEST
+timesheet generate -p TEST
 
 # Mit Zeitraum-Filter
-jira-timesheet generate -p TEST -s 2024-12-01 -e 2024-12-31
+timesheet generate -p TEST -s 2024-12-01 -e 2024-12-31
 
 # Für bestimmten Benutzer
-jira-timesheet generate -p TEST -u max.mustermann@firma.com
+timesheet generate -p TEST -u max.mustermann@firma.com
 
 # Für mehrere Benutzer gleichzeitig
-jira-timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
+timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
 
 # Alle Benutzer (Standard-Verhalten)
-jira-timesheet generate -p TEST
+timesheet generate -p TEST
 
 # Konfiguration anzeigen
-jira-timesheet config
+timesheet config
 
 # Verbindung testen
-jira-timesheet test
+timesheet test
 ```
 
 ### Ausgabeformate
 ```bash
 # Standard Tabellen-Ausgabe
-jira-timesheet generate -p TEST
+timesheet generate -p TEST
 
 # Als CSV exportieren
-jira-timesheet generate -p TEST -f csv -o stundenzettel.csv
+timesheet generate -p TEST -f csv -o stundenzettel.csv
 
 # Als JSON ausgeben
-jira-timesheet generate -p TEST -f json
+timesheet generate -p TEST -f json
 
 # Als Markdown exportieren
-jira-timesheet generate -p TEST -f markdown -o stundenzettel.md
+timesheet generate -p TEST -f markdown -o stundenzettel.md
 
 # CSV direkt in Konsole
-jira-timesheet generate -p TEST -f csv
+timesheet generate -p TEST -f csv
 
 # Markdown direkt in Konsole
-jira-timesheet generate -p TEST -f markdown
+timesheet generate -p TEST -f markdown
 ```
 
 ### Konfigurationsdateien
 ```bash
 # Alternative Config-Datei verwenden
-jira-timesheet -c /path/to/config.yml generate
+timesheet -c /path/to/config.yml generate
 
 # Via Environment Variable
-JIRA_CONFIG_FILE=/path/to/config.yml jira-timesheet generate
+JIRA_CONFIG_FILE=/path/to/config.yml timesheet generate
 
 # Kombiniert (--config hat Vorrang)
-JIRA_CONFIG_FILE=/path/to/env-config.yml jira-timesheet -c /path/to/param-config.yml generate
+JIRA_CONFIG_FILE=/path/to/env-config.yml timesheet -c /path/to/param-config.yml generate
 ```
 
 ## 📖 Kommandozeilen-Optionen
@@ -175,19 +175,19 @@ Das Tool unterstützt flexible Benutzerfilterung:
 
 **Alle Benutzer (Standard):**
 ```bash
-jira-timesheet generate -p TEST
+timesheet generate -p TEST
 # Zeigt Worklogs aller Benutzer im Projekt
 ```
 
 **Einzelner Benutzer (rückwärtskompatibel):**
 ```bash
-jira-timesheet generate -p TEST -u max.mustermann@firma.com
+timesheet generate -p TEST -u max.mustermann@firma.com
 # Zeigt nur Worklogs von Max Mustermann
 ```
 
 **Mehrere spezifische Benutzer:**
 ```bash
-jira-timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
+timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
 # Zeigt Worklogs von Max Mustermann und Anna Schmidt
 ```
 
@@ -316,8 +316,8 @@ echo 'export JIRA_API_TOKEN="your-api-token-here"' >> ~/.bashrc
 
 ### 3. Konfiguration testen
 ```bash
-jira-timesheet config  # Aktuelle Konfiguration anzeigen
-jira-timesheet test    # Verbindung zu Jira testen
+timesheet config  # Aktuelle Konfiguration anzeigen
+timesheet test    # Verbindung zu Jira testen
 ```
 
 ## 💡 Beispiele
@@ -325,64 +325,64 @@ jira-timesheet test    # Verbindung zu Jira testen
 ### Basis-Verwendung
 ```bash
 # Standard-Verwendung (alle Benutzer mit Tages-Gruppierung)
-jira-timesheet generate -p TEST
+timesheet generate -p TEST
 
 # Bestimmter Zeitraum (zeigt schön die Tage-Aufteilung)
-jira-timesheet generate -p TEST -s 2024-12-01 -e 2024-12-07
+timesheet generate -p TEST -s 2024-12-01 -e 2024-12-07
 
 # Ein Benutzer (zeigt trotzdem Tages-Gruppierung)
-jira-timesheet generate -p TEST -u max.mustermann@firma.com
+timesheet generate -p TEST -u max.mustermann@firma.com
 ```
 
 ### Multi-User Beispiele
 ```bash
 # Zwei spezifische Teammitglieder
-jira-timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
+timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
 
 # Drei Entwickler für Sprint-Review
-jira-timesheet generate -p TEST \
+timesheet generate -p TEST \
   -u dev1@firma.com \
   -u dev2@firma.com \
   -u dev3@firma.com \
   -s 2024-12-01 -e 2024-12-14
 
 # Team-Lead und Senior-Entwickler für Management-Report
-jira-timesheet generate -p TEST \
+timesheet generate -p TEST \
   -u teamlead@firma.com \
   -u senior.dev@firma.com \
   -f csv -o management_report.csv
 
 # Alle Benutzer vs. spezifische Auswahl vergleichen
-jira-timesheet generate -p TEST -f json > all_users.json
-jira-timesheet generate -p TEST -u key.person@firma.com -f json > key_person.json
+timesheet generate -p TEST -f json > all_users.json
+timesheet generate -p TEST -u key.person@firma.com -f json > key_person.json
 ```
 
 ### Export-Beispiele
 ```bash
 # CSV mit Tages-Hierarchie
-jira-timesheet generate -p TEST -f csv -o stundenzettel.csv
+timesheet generate -p TEST -f csv -o stundenzettel.csv
 
 # Markdown für Dokumentation
-jira-timesheet generate -p TEST -f markdown -o stundenzettel.md
+timesheet generate -p TEST -f markdown -o stundenzettel.md
 
 # Mit Jahr-Zeitraum für Jahresabschluss
-jira-timesheet generate -p TEST -s 2024-01-01 -e 2024-12-31
+timesheet generate -p TEST -s 2024-01-01 -e 2024-12-31
 
 # Explizite Ausgabedatei für verschiedene Formate
-jira-timesheet generate -p TEST -f csv -o team_report_dezember.csv
-jira-timesheet generate -p TEST -f markdown -o team_report_dezember.md
+timesheet generate -p TEST -f csv -o team_report_dezember.csv
+timesheet generate -p TEST -f markdown -o team_report_dezember.md
 
 # JSON für weitere Verarbeitung
-jira-timesheet generate -p TEST -f json > data.json
+timesheet generate -p TEST -f json > data.json
 
 # Markdown für README oder Wiki
-jira-timesheet generate -p TEST -f markdown > project_timesheet.md
+timesheet generate -p TEST -f markdown > project_timesheet.md
 
 # Kurze Optionen verwenden
-jira-timesheet generate -p TEST -f csv -o report.csv -s 2024-12-01
+timesheet generate -p TEST -f csv -o report.csv -s 2024-12-01
 
 # Mit alternativer Config
-jira-timesheet -c ./project-config.yml generate -p SPECIAL
+timesheet -c ./project-config.yml generate -p SPECIAL
 ```
 
 ## 🐛 Troubleshooting
@@ -396,7 +396,7 @@ jira --version
 jira init
 
 # Config-Pfad überprüfen
-jira-timesheet config
+timesheet config
 ```
 
 **"JIRA_API_TOKEN environment variable not set"**
@@ -405,7 +405,7 @@ jira-timesheet config
 export JIRA_API_TOKEN="your-token"
 
 # Token testen
-jira-timesheet test
+timesheet test
 ```
 
 **"No issues found matching criteria"**
@@ -426,10 +426,10 @@ jira-timesheet test
 ### Debug-Modus
 ```bash
 # Konfiguration überprüfen
-jira-timesheet config
+timesheet config
 
 # Verbindung testen
-jira-timesheet test
+timesheet test
 ```
 
 ## 🔨 Build-Prozess
@@ -471,29 +471,29 @@ Nach `npm run build:all`:
 
 ```
 dist/
-├── jira_timesheet_cli.bundle.cjs   # esbuild Bundle
+├── timesheet.bundle.cjs   # esbuild Bundle
 
 binaries/
-├── jira-timesheet-cli-linux-x64    # Linux x64 Binary
-├── jira-timesheet-cli-darwin-x64    # macOS x64 Binary
-├── jira-timesheet-cli-darwin-arm64  # macOS ARM64 Binary
-└── jira-timesheet-cli-win-x64.exe  # Windows x64 Binary
+├── timesheet-linux-x64    # Linux x64 Binary
+├── timesheet-darwin-x64    # macOS x64 Binary
+├── timesheet-darwin-arm64  # macOS ARM64 Binary
+└── timesheet-win-x64.exe  # Windows x64 Binary
 ```
 
 ### Binary-Verwendung
 
 ```bash
 # Linux
-./binaries/jira-timesheet-cli-linux-x64 generate -p TEST
+./binaries/timesheet-linux-x64 generate -p TEST
 
 # macOS (Intel)
-./binaries/jira-timesheet-cli-darwin-x64 generate -p TEST
+./binaries/timesheet-darwin-x64 generate -p TEST
 
 # macOS (Apple Silicon)
-./binaries/jira-timesheet-cli-darwin-arm64 generate -p TEST
+./binaries/timesheet-darwin-arm64 generate -p TEST
 
 # Windows
-./binaries/jira-timesheet-cli-win-x64.exe generate -p TEST
+./binaries/timesheet-win-x64.exe generate -p TEST
 ```
 
 **Vorteile der Binaries:**
@@ -514,7 +514,7 @@ cd jira-timesheet-cli
 npm install
 
 # Lokal testen
-node jira_timesheet_cli.js generate -p TEST
+node timesheet.js generate -p TEST
 
 # Global installieren (für Entwicklung)
 npm link

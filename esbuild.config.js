@@ -5,9 +5,9 @@ import { build } from 'esbuild';
  * Bundles the ES module CLI tool for pkg binary creation
  */
 const config = {
-  entryPoints: ['jira_timesheet_cli.js'],
+  entryPoints: ['timesheet.js'],
   bundle: true,
-  outfile: 'dist/jira_timesheet_cli.bundle.cjs',
+  outfile: 'dist/timesheet.bundle.cjs',
   platform: 'node',
   target: 'node18',
   format: 'cjs', // Change to CommonJS for better pkg compatibility
@@ -54,7 +54,7 @@ async function buildBundle() {
     
     await build(config);
     
-    console.log('✅ Bundle created successfully at dist/jira_timesheet_cli.bundle.cjs');
+    console.log('✅ Bundle created successfully at dist/timesheet.bundle.cjs');
   } catch (error) {
     console.error('❌ Build failed:', error);
     process.exit(1);

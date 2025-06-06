@@ -8,7 +8,7 @@ import { server } from './setup.js';
 import { http, HttpResponse } from 'msw';
 import { createMockJiraConfig, createMockUserResponse } from './test-utils.js';
 
-const { JiraTimesheetCLI } = await import('../jira_timesheet_cli.js');
+const { JiraTimesheetCLI } = await import('../timesheet.js');
 
 describe('API Communication', () => {
   let cli;
