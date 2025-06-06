@@ -29,6 +29,70 @@ class JiraTimesheetCLI {
   }
 
   /**
+   * Convert date format from DD.MM.YYYY to YYYY-MM-DD for JIRA API compatibility
+   * @param {string} dateString - Date in DD.MM.YYYY format
+   * @returns {string} Date in YYYY-MM-DD format
+   * @throws {Error} If date format is invalid
+   */
+  convertDateFormat(dateString) {
+    if (!dateString || typeof dateString !== 'string') {
+      throw new Error('Date string is required and must be a string');
+    }
+
+    // Check if already in YYYY-MM-DD format
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (isoDatePattern.test(dateString)) {
+      // Validate the date is actually valid
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        throw new Error(`Invalid date: ${dateString}`);
+      }
+      return dateString;
+    }
+
+    // Check for DD.MM.YYYY format
+    const germanDatePattern = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
+    const match = dateString.match(germanDatePattern);
+    
+    if (!match) {
+      throw new Error(`Invalid date format: ${dateString}. Expected DD.MM.YYYY or YYYY-MM-DD format.`);
+    }
+
+    const [, day, month, year] = match;
+    
+    // Validate day and month ranges
+    const dayNum = parseInt(day, 10);
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt(year, 10);
+    
+    if (dayNum < 1 || dayNum > 31) {
+      throw new Error(`Invalid day: ${day}. Day must be between 1 and 31.`);
+    }
+    
+    if (monthNum < 1 || monthNum > 12) {
+      throw new Error(`Invalid month: ${month}. Month must be between 1 and 12.`);
+    }
+    
+    if (yearNum < 1900 || yearNum > 2100) {
+      throw new Error(`Invalid year: ${year}. Year must be between 1900 and 2100.`);
+    }
+
+    // Pad day and month with leading zeros
+    const paddedDay = day.padStart(2, '0');
+    const paddedMonth = month.padStart(2, '0');
+    
+    const convertedDate = `${year}-${paddedMonth}-${paddedDay}`;
+    
+    // Final validation: check if the date is actually valid
+    const date = new Date(convertedDate);
+    if (isNaN(date.getTime()) || date.toISOString().split('T')[0] !== convertedDate) {
+      throw new Error(`Invalid date: ${dateString}. The date does not exist.`);
+    }
+    
+    return convertedDate;
+  }
+
+  /**
    * Determine config file path following jira-cli logic:
    * 1. --config/-c parameter (highest priority)
    * 2. JIRA_CONFIG_FILE environment variable
@@ -156,12 +220,22 @@ class JiraTimesheetCLI {
       }
     }
 
+    // Convert date formats for JQL query
+    let convertedStartDate = null;
+    let convertedEndDate = null;
+    
     if (options.start || options.end) {
-      if (options.start) {
-        jql += ` AND worklogDate >= "${options.start}"`;
-      }
-      if (options.end) {
-        jql += ` AND worklogDate <= "${options.end}"`;
+      try {
+        if (options.start) {
+          convertedStartDate = this.convertDateFormat(options.start);
+          jql += ` AND worklogDate >= "${convertedStartDate}"`;
+        }
+        if (options.end) {
+          convertedEndDate = this.convertDateFormat(options.end);
+          jql += ` AND worklogDate <= "${convertedEndDate}"`;
+        }
+      } catch (error) {
+        throw new Error(`Date format error: ${error.message}`);
       }
     }
 
@@ -188,9 +262,15 @@ class JiraTimesheetCLI {
           // Apply date and user filters to worklogs
           const worklogDate = worklog.started.split('T')[0];
           
-          if (options.start && worklogDate < options.start) continue;
-          if (options.end && worklogDate > options.end) continue;
+          // Use converted dates for consistent comparison (YYYY-MM-DD format)
+          if (convertedStartDate && worklogDate < convertedStartDate) continue;
+          if (convertedEndDate && worklogDate > convertedEndDate) continue;
           if (usersToFilter.length > 0 && !usersToFilter.includes(worklog.author.emailAddress)) continue;
+
+          // DEBUG: Log worklog.comment structure
+          // if (worklog.comment) { // Nur loggen, wenn ein Kommentar vorhanden ist
+          //   console.log(chalk.magenta('DEBUG: worklog.comment structure for issue ' + issue.key + ' worklog ' + worklog.id + ':'), JSON.stringify(worklog.comment, null, 2));
+          // }
 
           worklogEntries.push({
             issueKey: issue.key,
@@ -198,7 +278,7 @@ class JiraTimesheetCLI {
             author: worklog.author.displayName,
             timeSpent: worklog.timeSpent,
             timeSpentSeconds: worklog.timeSpentSeconds,
-            comment: worklog.comment || '',
+            comment: this.extractCommentText(worklog.comment),
             started: worklog.started,
             created: worklog.created
           });
@@ -209,6 +289,37 @@ class JiraTimesheetCLI {
     }
 
     return worklogEntries.sort((a, b) => new Date(a.started).getTime() - new Date(b.started).getTime());
+  }
+
+  /**
+   * Extracts plain text from Jira's Atlassian Document Format comment.
+   * Concatenates text from all 'text' nodes within paragraphs.
+   */
+  extractCommentText(commentObject) {
+    if (!commentObject || !commentObject.content || !Array.isArray(commentObject.content)) {
+      return '';
+    }
+
+    let fullText = '';
+    try {
+      commentObject.content.forEach(block => {
+        if (block.type === 'paragraph' && block.content && Array.isArray(block.content)) {
+          block.content.forEach(inline => {
+            if (inline.type === 'text' && inline.text) {
+              if (fullText.length > 0) {
+                fullText += ' '; // Add space between text parts from different nodes if needed
+              }
+              fullText += inline.text;
+            }
+          });
+        }
+      });
+    } catch (e) {
+      // Bei komplexeren Strukturen oder Fehlern, leeren String zurückgeben oder loggen
+      console.warn(chalk.yellow('Warning: Could not fully parse comment object. Returning raw or partial text.'), e);
+      return ''; // Fallback to empty string or potentially JSON.stringify(commentObject) if preferred
+    }
+    return fullText;
   }
 
   /**
@@ -263,17 +374,34 @@ class JiraTimesheetCLI {
     let totalEntries = 0;
     let output = '';
 
-    const title = 'Stundenzettel (gruppiert nach Benutzer und Tag)';
-    output += '\n📊 ' + (disableChalk ? title : chalk.bold(title));
+    const title = 'Stundenzettel';
+    output += '📊 ' + (disableChalk ? title : chalk.bold(title));
 
     // Iterate through each user
+    let isFirstUser = true;
     for (const [author, userDateMap] of groupedEntries) {
-      const authorText = `\n👤 ${author}`;
+      // Add empty line before each user header (including the first one after title)
+      const authorText = `\n\n👤 ${author}`;
       output += disableChalk ? authorText : chalk.cyan(authorText);
+      isFirstUser = false;
       output += '\n' + '─'.repeat(80);
 
       let userTotalSeconds = 0;
       let userTotalEntries = 0;
+
+      // Create one continuous table for all days of this user
+      const table = new Table({
+        head: ['Datum', 'Issue', 'Comment', 'Time'],
+        colWidths: [12, 15, 40, 10],
+        wordWrap: true,
+        chars: disableChalk ? {
+          'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+        , 'right': '|' , 'right-mid': '+' , 'middle': '|'
+      } : undefined,
+      style: disableChalk ? { 'padding-left': 1, 'padding-right': 1, head: [], border: [] } : undefined
+      });
 
       // Sort dates
       const sortedDates = Array.from(userDateMap.keys()).sort((a, b) => {
@@ -287,66 +415,38 @@ class JiraTimesheetCLI {
         const dayEntries = userDateMap.get(date);
         if (!dayEntries) continue; // Skip if no entries for this date
         
-        const dateText = `\n\n  📅 ${date}`;
-        output += disableChalk ? dateText : chalk.yellow(dateText);
-        
-        const table = new Table({
-          head: ['Issue', 'Summary', 'Time', 'Comment'],
-          colWidths: [15, 45, 10, 30],
-          wordWrap: true,
-          chars: disableChalk ? { 
-            'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
-          , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
-          , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
-          , 'right': '|' , 'right-mid': '+' , 'middle': '|' 
-        } : undefined, 
-        style: disableChalk ? { 'padding-left': 1, 'padding-right': 1, head: [], border: [] } : undefined
-        });
-
         let dayTotalSeconds = 0;
 
         // Sort entries within the day by time
         dayEntries.sort((a, b) => new Date(a.started).getTime() - new Date(b.started).getTime());
 
         // Add regular worklog entries
-        dayEntries.forEach(entry => {
-          const commentText = typeof entry.comment === 'string' ? entry.comment : '';
-          const comment = commentText.length > 25
-            ? commentText.substring(0, 25) + '...'
-            : commentText;
-
+        dayEntries.forEach((entry, index) => {
           table.push([
+            index === 0 ? date : '', // Show date only in first row of each day
             entry.issueKey,
-            entry.issueSummary,
-            entry.timeSpent,
-            comment
+            entry.comment || '',
+            entry.timeSpent
           ]);
 
           dayTotalSeconds += entry.timeSpentSeconds;
         });
 
-        // Add separator line
-        table.push([
-          { colSpan: 4, content: '─'.repeat(40) }
-        ]);
-
-        // Add day total row
-        const tagessummeText = '📊 TAGESSUMME';
+        // Add day total row (without separator line)
         const eintreageText = `${dayEntries.length} Einträge`;
         const timeText = this.formatTime(dayTotalSeconds);
 
         table.push([
-          disableChalk ? tagessummeText : chalk.bold(tagessummeText),
+          { colSpan: 2, content: '' },
           disableChalk ? eintreageText : chalk.bold(eintreageText),
-          disableChalk ? timeText : chalk.bold.green(timeText),
-          ''
+          disableChalk ? timeText : chalk.bold.green(timeText)
         ]);
-
-        output += '\n' + table.toString();
         
         userTotalSeconds += dayTotalSeconds;
         userTotalEntries += dayEntries.length;
       }
+
+      output += '\n' + table.toString();
       
       // User summary
       const userSummaryText = `\n\n📈 ${author} Gesamt: ${this.formatTime(userTotalSeconds)} (${userTotalEntries} Einträge)`;
@@ -370,16 +470,13 @@ class JiraTimesheetCLI {
    * Export timesheet as CSV (grouped by user and date)
    */
   exportToCsv(entries) {
-    const headers = ['User', 'Date', 'Issue Key', 'Issue Summary', 'Time Spent', 'Time (Seconds)', 'Comment', 'Started', 'Created'];
+    const headers = ['Date', 'User', 'Issue Key', 'Comment', 'Time Spent', 'Time (Seconds)', 'Started', 'Created'];
     const rows = [headers.join(',')];
 
     const groupedEntries = this.groupByUserAndDate(entries);
 
     // Add data rows grouped by user and date
     for (const [author, userDateMap] of groupedEntries) {
-      let userTotalSeconds = 0;
-      let userTotalEntries = 0;
-
       // Sort dates
       const sortedDates = Array.from(userDateMap.keys()).sort((a, b) => {
         const dateA = new Date(a.split('.').reverse().join('-'));
@@ -389,56 +486,39 @@ class JiraTimesheetCLI {
 
       for (const date of sortedDates) {
         const dayEntries = userDateMap.get(date);
-        if (!dayEntries) continue; 
-        let dayTotalSeconds = 0;
+        if (!dayEntries) continue;
         
         dayEntries.sort((a, b) => new Date(a.started).getTime() - new Date(b.started).getTime());
         
-        dayEntries.forEach(entry => {
+        // Add regular worklog entries
+        dayEntries.forEach((entry) => {
           const row = [
+            date, // Always show date in first column
             author,
-            date,
             entry.issueKey,
-            `"${entry.issueSummary.replace(/"/g, '""')}"`,
+            `"${(entry.comment || '').replace(/"/g, '""')}"`,
             entry.timeSpent,
             entry.timeSpentSeconds.toString(),
-            `"${(typeof entry.comment === 'string' ? entry.comment : '').replace(/"/g, '""')}"`,
             entry.started,
             entry.created
           ];
           rows.push(row.join(','));
-          dayTotalSeconds += entry.timeSpentSeconds;
         });
-        
-        rows.push([
-          `"--- ${author} - ${date} ---"`,
+
+        // Add day total row
+        const dayTotalSeconds = dayEntries.reduce((sum, entry) => sum + entry.timeSpentSeconds, 0);
+        const dayTotalRow = [
           date,
-          '',
-          '"Tagessumme"',
+          author,
+          '📊 TAGESSUMME',
+          `"${dayEntries.length} Einträge"`,
           this.formatTime(dayTotalSeconds),
           dayTotalSeconds.toString(),
-          `"${dayEntries.length} Einträge"`,
           '',
           ''
-        ].join(','));
-        
-        userTotalSeconds += dayTotalSeconds;
-        userTotalEntries += dayEntries.length;
+        ];
+        rows.push(dayTotalRow.join(','));
       }
-      
-      rows.push([
-        `"=== ${author} GESAMT ==="`,
-        '',
-        '',
-        '"Benutzersumme"',
-        this.formatTime(userTotalSeconds),
-        userTotalSeconds.toString(),
-        `"${userTotalEntries} Einträge"`,
-        '',
-        ''
-      ].join(','));
-      
-      rows.push('');
     }
 
     return rows.join('\n');
@@ -458,7 +538,7 @@ class JiraTimesheetCLI {
     let output = '';
 
     // Main title
-    output += '# Stundenzettel (gruppiert nach Benutzer und Tag)\n\n';
+    output += '# Stundenzettel\n\n';
 
     // Iterate through each user
     for (const [author, userDateMap] of groupedEntries) {
@@ -466,6 +546,10 @@ class JiraTimesheetCLI {
 
       let userTotalSeconds = 0;
       let userTotalEntries = 0;
+
+      // Create one continuous markdown table for all days of this user
+      output += '| Datum | Issue Key | Comment | Time Spent |\n';
+      output += '|-------|-----------|---------|------------|\n';
 
       // Sort dates
       const sortedDates = Array.from(userDateMap.keys()).sort((a, b) => {
@@ -479,34 +563,28 @@ class JiraTimesheetCLI {
         const dayEntries = userDateMap.get(date);
         if (!dayEntries) continue;
         
-        output += `### 📅 ${date}\n\n`;
-        
-        // Create markdown table
-        output += '| Issue Key | Summary | Time Spent | Comment |\n';
-        output += '|-----------|---------|------------|----------|\n';
-
         let dayTotalSeconds = 0;
 
         // Sort entries within the day by time
         dayEntries.sort((a, b) => new Date(a.started).getTime() - new Date(b.started).getTime());
 
         // Add regular worklog entries
-        dayEntries.forEach(entry => {
-          const commentText = typeof entry.comment === 'string' ? entry.comment : '';
+        dayEntries.forEach((entry, index) => {
           // Escape pipe characters and newlines in markdown table content
-          const escapedSummary = entry.issueSummary.replace(/\|/g, '\\|').replace(/\n/g, ' ');
-          const escapedComment = commentText.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+          const escapedComment = (entry.comment || '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
           
-          output += `| ${entry.issueKey} | ${escapedSummary} | ${entry.timeSpent} | ${escapedComment} |\n`;
+          output += `| ${index === 0 ? date : ''} | ${entry.issueKey} | ${escapedComment} | ${entry.timeSpent} |\n`;
           dayTotalSeconds += entry.timeSpentSeconds;
         });
 
         // Add day total row
-        output += `| **📊 TAGESSUMME** | **${dayEntries.length} Einträge** | **${this.formatTime(dayTotalSeconds)}** | |\n\n`;
+        output += `| | | **${dayEntries.length} Einträge** | **${this.formatTime(dayTotalSeconds)}** |\n`;
         
         userTotalSeconds += dayTotalSeconds;
         userTotalEntries += dayEntries.length;
       }
+      
+      output += '\n';
       
       // User summary
       output += `**📈 ${author} Gesamt: ${this.formatTime(userTotalSeconds)} (${userTotalEntries} Einträge)**\n\n`;
@@ -629,8 +707,8 @@ program
   .alias('gen')
   .description('Generate timesheet for a project')
   .option('-p, --project <projectKey>', 'Jira project key (e.g., SB)')
-  .option('-s, --start <YYYY-MM-DD>', 'Start date for worklogs')
-  .option('-e, --end <YYYY-MM-DD>', 'End date for worklogs')
+  .option('-s, --start <date>', 'Start date for worklogs (DD.MM.YYYY or YYYY-MM-DD)')
+  .option('-e, --end <date>', 'End date for worklogs (DD.MM.YYYY or YYYY-MM-DD)')
   .option('-u, --user <email...>', 'Filter by user email (can be specified multiple times)')
   .addOption(new Option('-f, --format <format>', 'Output format').choices(['table', 'json', 'csv', 'markdown']).default('table'))
   .option('-o, --output <file>', 'Output file path')

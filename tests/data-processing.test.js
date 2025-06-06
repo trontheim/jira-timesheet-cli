@@ -459,6 +459,102 @@ describe('Data Processing', () => {
 
         consoleSpy.mockRestore();
       });
+
+      it('should convert German date formats in JQL queries', async () => {
+        // Setup MSW handler to capture JQL queries
+        server.use(
+          http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+            const url = new URL(request.url);
+            capturedJql = url.searchParams.get('jql') || '';
+            return HttpResponse.json(createMockJiraIssueResponse());
+          })
+        );
+
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        await cli.getProjectWorklogs({
+          project: 'TEST',
+          start: '15.01.2024',
+          end: '31.12.2024'
+        });
+
+        expect(capturedJql).toContain('worklogDate >= "2024-01-15"');
+        expect(capturedJql).toContain('worklogDate <= "2024-12-31"');
+
+        consoleSpy.mockRestore();
+      });
+
+      it('should handle single digit German dates in JQL', async () => {
+        // Setup MSW handler to capture JQL queries
+        server.use(
+          http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+            const url = new URL(request.url);
+            capturedJql = url.searchParams.get('jql') || '';
+            return HttpResponse.json(createMockJiraIssueResponse());
+          })
+        );
+
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        await cli.getProjectWorklogs({
+          project: 'TEST',
+          start: '5.5.2024',
+          end: '9.9.2024'
+        });
+
+        expect(capturedJql).toContain('worklogDate >= "2024-05-05"');
+        expect(capturedJql).toContain('worklogDate <= "2024-09-09"');
+
+        consoleSpy.mockRestore();
+      });
+
+      it('should handle mixed date formats in JQL', async () => {
+        // Setup MSW handler to capture JQL queries
+        server.use(
+          http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+            const url = new URL(request.url);
+            capturedJql = url.searchParams.get('jql') || '';
+            return HttpResponse.json(createMockJiraIssueResponse());
+          })
+        );
+
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        await cli.getProjectWorklogs({
+          project: 'TEST',
+          start: '15.01.2024',  // German format
+          end: '2024-12-31'     // ISO format
+        });
+
+        expect(capturedJql).toContain('worklogDate >= "2024-01-15"');
+        expect(capturedJql).toContain('worklogDate <= "2024-12-31"');
+
+        consoleSpy.mockRestore();
+      });
+
+      it('should reject invalid German dates in JQL construction', async () => {
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+        // Invalid day
+        await expect(cli.getProjectWorklogs({
+          project: 'TEST',
+          start: '32.01.2024'
+        })).rejects.toThrow('Invalid day: 32. Day must be between 1 and 31.');
+
+        // Invalid month
+        await expect(cli.getProjectWorklogs({
+          project: 'TEST',
+          start: '15.13.2024'
+        })).rejects.toThrow('Invalid month: 13. Month must be between 1 and 12.');
+
+        // Invalid date that doesn't exist
+        await expect(cli.getProjectWorklogs({
+          project: 'TEST',
+          start: '31.02.2024'
+        })).rejects.toThrow('Invalid date: 31.02.2024. The date does not exist.');
+
+        consoleSpy.mockRestore();
+      });
     });
 
     describe('user filtering', () => {
@@ -706,7 +802,19 @@ describe('Data Processing', () => {
             {
               timeSpent: '1h',
               timeSpentSeconds: 3600,
-              comment: 'Later',
+              comment: {
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Later'
+                      }
+                    ]
+                  }
+                ]
+              },
               started: '2024-01-15T14:00:00.000+0000',
               created: '2024-01-15T14:00:00.000+0000',
               author: {
@@ -717,7 +825,19 @@ describe('Data Processing', () => {
             {
               timeSpent: '2h',
               timeSpentSeconds: 7200,
-              comment: 'Earlier',
+              comment: {
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Earlier'
+                      }
+                    ]
+                  }
+                ]
+              },
               started: '2024-01-15T09:00:00.000+0000',
               created: '2024-01-15T09:00:00.000+0000',
               author: {
@@ -732,6 +852,9 @@ describe('Data Processing', () => {
         server.use(
           http.get(`${JIRA_BASE_URL}/rest/api/3/search`, () => {
             return HttpResponse.json(createMockJiraIssueResponse());
+          }),
+          http.get(`${JIRA_BASE_URL}/rest/api/3/issue/*/worklog`, () => {
+            return HttpResponse.json(mockWorklogResponse);
           })
         );
 

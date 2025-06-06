@@ -345,19 +345,47 @@ describe('CLI Integration', () => {
     });
 
     it('should validate date format', async () => {
-      // Valid date formats should work
+      // Valid ISO date formats should work
       await expect(cli.getProjectWorklogs({
         project: 'TEST',
         start: '2024-01-15',
         end: '2024-01-16'
       })).resolves.not.toThrow();
 
-      // Invalid date formats should be handled gracefully
+      // Valid German date formats should work
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '15.01.2024',
+        end: '16.01.2024'
+      })).resolves.not.toThrow();
+
+      // Mixed date formats should work
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '15.01.2024',
+        end: '2024-01-16'
+      })).resolves.not.toThrow();
+
+      // Invalid date formats should throw errors
       await expect(cli.getProjectWorklogs({
         project: 'TEST',
         start: 'invalid-date',
         end: '2024-01-16'
-      })).resolves.not.toThrow();
+      })).rejects.toThrow();
+
+      // Invalid German date formats should throw errors
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '32.01.2024',
+        end: '2024-01-16'
+      })).rejects.toThrow();
+
+      // Invalid leap year dates should throw errors
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '29.02.2023',
+        end: '2024-01-16'
+      })).rejects.toThrow();
     });
 
     it('should validate format choices', () => {
@@ -439,3 +467,174 @@ describe('CLI Integration', () => {
     });
   });
 });
+describe('German Date Format Integration', () => {
+    let cli;
+
+    beforeEach(() => {
+      cli = new JiraTimesheetCLI();
+      cli.config = createMockJiraConfig();
+      cli.apiToken = 'test-api-token';
+    });
+
+    it('should convert German date formats in CLI parameters', async () => {
+      let capturedJql = '';
+      
+      // Override the search handler to capture JQL
+      server.use(
+        http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+          const url = new URL(request.url);
+          capturedJql = url.searchParams.get('jql') || '';
+          return HttpResponse.json({ issues: [] });
+        })
+      );
+
+      await cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '15.01.2024',
+        end: '31.12.2024'
+      });
+
+      // Verify that German dates were converted to ISO format in JQL
+      expect(capturedJql).toContain('worklogDate >= "2024-01-15"');
+      expect(capturedJql).toContain('worklogDate <= "2024-12-31"');
+    });
+
+    it('should handle single digit German dates correctly', async () => {
+      let capturedJql = '';
+      
+      server.use(
+        http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+          const url = new URL(request.url);
+          capturedJql = url.searchParams.get('jql') || '';
+          return HttpResponse.json({ issues: [] });
+        })
+      );
+
+      await cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '5.5.2024',
+        end: '9.9.2024'
+      });
+
+      // Verify proper zero-padding in converted dates
+      expect(capturedJql).toContain('worklogDate >= "2024-05-05"');
+      expect(capturedJql).toContain('worklogDate <= "2024-09-09"');
+    });
+
+    it('should handle mixed date formats in same query', async () => {
+      let capturedJql = '';
+      
+      server.use(
+        http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+          const url = new URL(request.url);
+          capturedJql = url.searchParams.get('jql') || '';
+          return HttpResponse.json({ issues: [] });
+        })
+      );
+
+      await cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '15.01.2024',  // German format
+        end: '2024-12-31'     // ISO format
+      });
+
+      expect(capturedJql).toContain('worklogDate >= "2024-01-15"');
+      expect(capturedJql).toContain('worklogDate <= "2024-12-31"');
+    });
+
+    it('should handle leap year dates in German format', async () => {
+      let capturedJql = '';
+      
+      server.use(
+        http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+          const url = new URL(request.url);
+          capturedJql = url.searchParams.get('jql') || '';
+          return HttpResponse.json({ issues: [] });
+        })
+      );
+
+      await cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '29.02.2024',  // Valid leap year date
+        end: '1.03.2024'
+      });
+
+      expect(capturedJql).toContain('worklogDate >= "2024-02-29"');
+      expect(capturedJql).toContain('worklogDate <= "2024-03-01"');
+    });
+
+    it('should reject invalid German date formats with proper error messages', async () => {
+      // Invalid day
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '32.01.2024'
+      })).rejects.toThrow('Invalid day: 32. Day must be between 1 and 31.');
+
+      // Invalid month
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '15.13.2024'
+      })).rejects.toThrow('Invalid month: 13. Month must be between 1 and 12.');
+
+      // Invalid date that doesn't exist
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '31.02.2024'
+      })).rejects.toThrow('Invalid date: 31.02.2024. The date does not exist.');
+
+      // Invalid leap year date
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '29.02.2023'
+      })).rejects.toThrow('Invalid date: 29.02.2023. The date does not exist.');
+
+      // Invalid format
+      await expect(cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '15/01/2024'
+      })).rejects.toThrow('Invalid date format: 15/01/2024. Expected DD.MM.YYYY or YYYY-MM-DD format.');
+    });
+
+    it('should handle edge cases in German date conversion', async () => {
+      let capturedJql = '';
+      
+      server.use(
+        http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+          const url = new URL(request.url);
+          capturedJql = url.searchParams.get('jql') || '';
+          return HttpResponse.json({ issues: [] });
+        })
+      );
+
+      // Test month boundaries
+      await cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '31.01.2024',
+        end: '30.04.2024'
+      });
+
+      expect(capturedJql).toContain('worklogDate >= "2024-01-31"');
+      expect(capturedJql).toContain('worklogDate <= "2024-04-30"');
+    });
+
+    it('should preserve ISO dates when already in correct format', async () => {
+      let capturedJql = '';
+      
+      server.use(
+        http.get(`${JIRA_BASE_URL}/rest/api/3/search`, ({ request }) => {
+          const url = new URL(request.url);
+          capturedJql = url.searchParams.get('jql') || '';
+          return HttpResponse.json({ issues: [] });
+        })
+      );
+
+      await cli.getProjectWorklogs({
+        project: 'TEST',
+        start: '2024-01-15',
+        end: '2024-12-31'
+      });
+
+      expect(capturedJql).toContain('worklogDate >= "2024-01-15"');
+      expect(capturedJql).toContain('worklogDate <= "2024-12-31"');
+    });
+  });

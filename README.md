@@ -105,7 +105,7 @@ jira-timesheet test
 
 ### Ausgabeformate
 ```bash
-# Standard Tabellen-Ausgabe (gruppiert nach Benutzer und Tag)
+# Standard Tabellen-Ausgabe
 jira-timesheet generate -p TEST
 
 # Als CSV exportieren
@@ -231,7 +231,7 @@ issue:
 
 ### Gruppierte Tabellen-Ausgabe
 ```
-📊 Stundenzettel (gruppiert nach Benutzer und Tag)
+📊 Stundenzettel
 
 👤 Max Mustermann
 ────────────────────────────────────────────────────────────────────────────────
@@ -263,7 +263,7 @@ Max Mustermann,01.12.2024,TEST-123,"Bug fix","2h 30m",9000,"Fixed it","2024-12-0
 
 ### Markdown-Ausgabe
 ```markdown
-# Stundenzettel (gruppiert nach Benutzer und Tag)
+# Stundenzettel
 
 ## 👤 Max Mustermann
 
