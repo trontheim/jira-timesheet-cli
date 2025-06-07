@@ -81,6 +81,7 @@ ehthumbs.db
 !README.md
 !package.json
 !package-lock.json
+!docs/*
 
 # Test coverage and reports
 coverage/

@@ -3,9 +3,14 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+(-[a-zA-Z0-9]+)?'
-    branches:
-      - main
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create release for'
+        required: true
+        default: ''
 
 jobs:
   test:
@@ -47,7 +52,7 @@ jobs:
         run: npm ci
         
       - name: Build binaries
-        run: npm run build:all
+        run: npm run build
         
       - name: List build artifacts
         run: |

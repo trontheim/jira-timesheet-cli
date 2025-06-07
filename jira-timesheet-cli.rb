@@ -1,31 +1,31 @@
 class JiraTimesheetCli < Formula
   desc "CLI tool to generate timesheets from Jira worklogs via REST API"
-  homepage "https://github.com/yourusername/jira-timesheet-cli"
+  homepage "https://github.com/trontheim/jira-timesheet-cli"
   version "1.0.0"
   license "MIT"
 
   # Platform-specific URLs for direct binary downloads
   on_macos do
     on_intel do
-      url "https://github.com/yourusername/jira-timesheet-cli/releases/download/v1.0.0/timesheet-darwin-amd64"
-      sha256 "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+      url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-darwin-x64"
+      sha256 "6de44898079e300e76cbbe4cfd3aebdf69a047e223baef8b5b2e81d54ea9cfce"
     end
     
     on_arm do
-      url "https://github.com/yourusername/jira-timesheet-cli/releases/download/v1.0.0/timesheet-darwin-arm64"
-      sha256 "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+      url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-darwin-arm64"
+      sha256 "6713b41e4caecb4caef7a329153ef02e2072e27a49465a211fb55692b6f7fb9c"
     end
   end
   
   on_linux do
     on_intel do
-      url "https://github.com/yourusername/jira-timesheet-cli/releases/download/v1.0.0/timesheet-linux-amd64"
-      sha256 "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321"
+      url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-linux-x64"
+      sha256 "2fa5d80311bce8dee3df6a25f2391397cdddd5e24dc0cad6043a6b8d95d8b2e7"
     end
     
     on_arm do
-      url "https://github.com/yourusername/jira-timesheet-cli/releases/download/v1.0.0/timesheet-linux-arm64"
-      sha256 "567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234"
+      url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-linux-arm64"
+      sha256 "72db9d1d1025f69b658def4aaa70b260d20dc1348eab9ef84ee402721d9da3e3"
     end
   end
   
@@ -33,13 +33,13 @@ class JiraTimesheetCli < Formula
   # But useful for completeness and potential future WSL/Cygwin support
   on_system :windows do
     on_intel do
-      url "https://github.com/yourusername/jira-timesheet-cli/releases/download/v1.0.0/timesheet-windows-amd64.exe"
-      sha256 "111222333444555666777888999000aaabbbbccccddddeeeeffffgggghhhhiiii"
+      url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-win-x64.exe"
+      sha256 "fd2a1027a71038ee3013f3ea8bc79f837b53c0256c046501e7f23217e5506af9"
     end
     
     on_arm do
-      url "https://github.com/yourusername/jira-timesheet-cli/releases/download/v1.0.0/timesheet-windows-arm64.exe"
-      sha256 "aaabbbcccdddeeefffggghhhiiijjjkkklllmmmnnnooopppqqqrrrssstttuuuvvv"
+      url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-win-arm64.exe"
+      sha256 "6dbffa25122ebb9f0ed0959105a6c5fd236375624f549c21c62bc67f87501540"
     end
   end
 

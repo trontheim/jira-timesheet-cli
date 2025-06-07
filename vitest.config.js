@@ -17,7 +17,6 @@ export default defineConfig({
         'tests/**',
         '__tests__/**',
         '*.config.js',
-        '*.config.ts',
         'coverage/**',
         'dist/**',
         'build/**'
@@ -40,9 +39,9 @@ export default defineConfig({
     
     // Test file patterns
     include: [
-      'tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      '__tests__/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
+      'tests/**/*.{test,spec}.{js,mjs,cjs,jsx}',
+      '__tests__/**/*.{test,spec}.{js,mjs,cjs,jsx}',
+      '**/*.{test,spec}.{js,mjs,cjs,jsx}'
     ],
     
     // Exclude patterns

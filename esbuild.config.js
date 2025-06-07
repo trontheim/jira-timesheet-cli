@@ -7,15 +7,14 @@ import { build } from 'esbuild';
 const config = {
   entryPoints: ['timesheet.js'],
   bundle: true,
-  outfile: 'dist/timesheet.bundle.cjs',
+  outfile: 'dist/timesheet.bundle.js',
   platform: 'node',
   target: 'node18',
-  format: 'cjs', // Change to CommonJS for better pkg compatibility
+  format: 'cjs', // Keep CommonJS format but use .js extension
   external: [
     // Keep these as external since they might have native dependencies
     // or need to be resolved at runtime
   ],
-  // Remove banner for CommonJS compatibility
   minify: false, // Keep readable for debugging
   sourcemap: false,
   treeShaking: true,
@@ -54,7 +53,7 @@ async function buildBundle() {
     
     await build(config);
     
-    console.log('✅ Bundle created successfully at dist/timesheet.bundle.cjs');
+    console.log('✅ Bundle created successfully at dist/timesheet.bundle.js');
   } catch (error) {
     console.error('❌ Build failed:', error);
     process.exit(1);
