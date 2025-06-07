@@ -22,7 +22,25 @@ Ein Node.js Kommandozeilen-Tool zur Generierung von Stundenzetteln aus Jira-Work
 
 ## 🚀 Installation
 
-### Option 1: Vorkompilierte Binaries (Empfohlen)
+### Option 1: Homebrew (macOS - Empfohlen)
+```bash
+# Tap hinzufügen (ersetze yourusername mit dem GitHub Username)
+brew tap yourusername/jira-timesheet-cli
+
+# Tool installieren
+brew install jira-timesheet-cli
+
+# Erste Konfiguration
+timesheet init
+```
+
+### Option 2: Direkte Homebrew Installation
+```bash
+# Direkte Installation ohne Tap hinzuzufügen
+brew install yourusername/jira-timesheet-cli/jira-timesheet-cli
+```
+
+### Option 3: Vorkompilierte Binaries
 ```bash
 # Repository klonen
 git clone <repository-url>
@@ -46,7 +64,7 @@ npm run build:all
 ./binaries/timesheet-linux-x64 init
 ```
 
-### Option 2: Lokale Installation
+### Option 4: Lokale Installation
 ```bash
 # Repository klonen
 git clone <repository-url>
@@ -59,7 +77,7 @@ npm install
 npm link
 ```
 
-### Option 3: NPM Package (falls veröffentlicht)
+### Option 5: NPM Package (falls veröffentlicht)
 ```bash
 npm install -g timesheet-cli
 ```
