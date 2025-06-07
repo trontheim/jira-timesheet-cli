@@ -13,6 +13,7 @@ import { Command, Option } from 'commander';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import yaml from 'js-yaml';
+import inquirer from 'inquirer';
 
 // Interfaces
 // Interfaces wurden entfernt, da reines JavaScript verwendet wird.
@@ -120,11 +121,18 @@ class JiraTimesheetCLI {
       const configData = await fs.readFile(configFile, 'utf-8');
       this.config = yaml.load(configData);
       
-      // API Token aus Environment Variable laden
+      // Validate config structure
+      if (!this.config || typeof this.config !== 'object') {
+        throw new Error('Invalid configuration file: Configuration must be a valid object');
+      }
+      
+      // Load credentials from environment variable based on auth_type
+      const authType = this.config.auth_type || 'api_token';
       this.apiToken = process.env.JIRA_API_TOKEN || null;
       
       if (!this.apiToken) {
-        throw new Error('JIRA_API_TOKEN environment variable not set');
+        const tokenName = authType === 'api_token' ? 'API Token' : 'Password';
+        throw new Error(`JIRA_API_TOKEN environment variable not set. Please set your ${tokenName} as JIRA_API_TOKEN.`);
       }
       
       return this.config;
@@ -161,15 +169,34 @@ class JiraTimesheetCLI {
     }
 
     const baseUrl = this.config.server.replace(/\/$/, '');
-    const auth = Buffer.from(`${this.config.login}:${this.apiToken}`).toString('base64');
+    const authType = this.config.auth_type || 'api_token';
     
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
+    let headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+
+    // Set authorization header based on auth type
+    if (authType === 'bearer') {
+      headers['Authorization'] = `Bearer ${this.apiToken}`;
+    } else {
+      // For 'api_token', 'basic', and other types, use Basic auth
+      const auth = Buffer.from(`${this.config.login}:${this.apiToken}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+    }
+    
+    // Configure fetch options
+    const fetchOptions = { headers };
+    
+    // Handle insecure flag for self-signed certificates
+    if (this.config.insecure) {
+      // Note: node-fetch doesn't directly support ignoring SSL errors
+      // This would typically require setting NODE_TLS_REJECT_UNAUTHORIZED=0
+      // or using a custom agent, but we'll document this in the config
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+    
+    const response = await fetch(`${baseUrl}${endpoint}`, fetchOptions);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -666,14 +693,1018 @@ class JiraTimesheetCLI {
     console.log(`Server: ${this.config.server}`);
     console.log(`Login: ${this.config.login}`);
     console.log(`Project: ${this.config.project?.key || this.config.project || 'Not set'}`);
+    if (this.config.project?.board_id) {
+      console.log(`Board ID: ${this.config.project.board_id}`);
+    }
     console.log(`Installation: ${this.config.installation}`);
     console.log(`Auth Type: ${this.config.auth_type}`);
-    console.log(`API Token: ${this.apiToken ? 'Set via JIRA_API_TOKEN' : 'Not set'}`);
+    console.log(`Insecure: ${this.config.insecure ? 'Yes (TLS verification disabled)' : 'No'}`);
     
-    const configSource = process.env.JIRA_CONFIG_FILE 
+    console.log(`Credentials: ${this.apiToken ? 'Set via JIRA_API_TOKEN' : 'Not set'}`);
+    
+    if (this.config.timesheet) {
+      console.log(`Default Format: ${this.config.timesheet.default_format || 'table'}`);
+      console.log(`Group by User: ${this.config.timesheet.group_by_user || false}`);
+    }
+    
+    const configSource = process.env.JIRA_CONFIG_FILE
       ? `JIRA_CONFIG_FILE env var: ${process.env.JIRA_CONFIG_FILE}`
       : `Default: ${this.configPath}`;
     console.log(`Config Path: ${configSource}`);
+  }
+
+  /**
+   * Validate Jira server URL
+   */
+  validateServerUrl(url) {
+    if (!url || typeof url !== 'string') {
+      return 'Server URL is required';
+    }
+    
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+      return 'Server URL cannot be empty';
+    }
+    
+    try {
+      const urlObj = new URL(trimmedUrl);
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        return 'Server URL must use HTTP or HTTPS protocol';
+      }
+      return true;
+    } catch (error) {
+      return 'Invalid URL format';
+    }
+  }
+
+  /**
+   * Validate email address
+   */
+  validateEmail(email) {
+    if (!email || typeof email !== 'string') {
+      return 'Email is required';
+    }
+    
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      return 'Email cannot be empty';
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return 'Invalid email format';
+    }
+    
+    return true;
+  }
+
+  /**
+   * Validate project key
+   */
+  validateProjectKey(projectKey) {
+    if (!projectKey) {
+      return true; // Optional field
+    }
+    
+    if (typeof projectKey !== 'string') {
+      return 'Project key must be a string';
+    }
+    
+    const trimmedKey = projectKey.trim();
+    if (trimmedKey && !/^[A-Z][A-Z0-9]*$/.test(trimmedKey)) {
+      return 'Project key must start with a letter and contain only uppercase letters and numbers';
+    }
+    
+    return true;
+  }
+
+  /**
+   * Validate board name
+   */
+  validateBoardName(boardName) {
+    if (!boardName) {
+      return true; // Optional field
+    }
+    
+    if (typeof boardName !== 'string') {
+      return 'Board name must be a string';
+    }
+    
+    const trimmedName = boardName.trim();
+    if (trimmedName.length === 0) {
+      return 'Board name cannot be empty';
+    }
+    
+    return true;
+  }
+
+  /**
+   * Create backup of existing configuration
+   */
+  async createConfigBackup(configPath) {
+    try {
+      await fs.access(configPath);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = `${configPath}.backup-${timestamp}`;
+      await fs.copyFile(configPath, backupPath);
+      console.log(chalk.yellow(`📦 Existing configuration backed up to: ${backupPath}`));
+      return backupPath;
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+      // File doesn't exist, no backup needed
+      return null;
+    }
+  }
+
+  /**
+   * Early credential validation - sofortiger Abbruch bei API-Fehlern wie im Original
+   */
+  async validateCredentialsEarly(config, apiToken) {
+    if (!apiToken) {
+      console.error(chalk.red(`Received unexpected response '401 Unauthorized' from jira.`));
+      process.exit(1);
+    }
+
+    const baseUrl = config.server.replace(/\/$/, '');
+    const authType = config.authType || 'api_token';
+    
+    let headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+
+    // Set authorization header based on auth type
+    if (authType === 'bearer') {
+      headers['Authorization'] = `Bearer ${apiToken}`;
+    } else {
+      // For 'api_token', 'basic', and other types, use Basic auth
+      const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+    }
+    
+    // Configure fetch options
+    const fetchOptions = { headers };
+    
+    // Handle insecure flag for self-signed certificates
+    if (config.insecure) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+    
+    try {
+      const response = await fetch(`${baseUrl}/rest/api/2/myself`, fetchOptions);
+
+      if (!response.ok) {
+        console.error(chalk.red(`Received unexpected response '${response.status} ${response.statusText}' from jira.`));
+        process.exit(1);
+      }
+
+      const userData = await response.json();
+      console.log(chalk.green(`✅ Credentials validated! Connected as: ${userData.displayName} (${userData.emailAddress})`));
+      return userData;
+    } catch (error) {
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        console.error(chalk.red(`Received unexpected response '404 Not Found' from jira.`));
+      } else {
+        console.error(chalk.red(`Received unexpected response '401 Unauthorized' from jira.`));
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Get user info for Bearer auth to auto-detect login
+   */
+  async getUserInfoForBearerAuth(config, apiToken) {
+    const baseUrl = config.server.replace(/\/$/, '');
+    
+    let headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiToken}`
+    };
+    
+    const fetchOptions = { headers };
+    
+    if (config.insecure) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+    
+    try {
+      const response = await fetch(`${baseUrl}/rest/api/2/myself`, fetchOptions);
+
+      if (!response.ok) {
+        console.error(chalk.red(`Received unexpected response '${response.status} ${response.statusText}' from jira.`));
+        process.exit(1);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(chalk.red(`Received unexpected response '401 Unauthorized' from jira.`));
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Test connection with provided configuration
+   */
+  async testConnectionWithConfig(config, apiToken) {
+    try {
+      const baseUrl = config.server.replace(/\/$/, '');
+      const authType = config.auth_type || 'api_token';
+      
+      let headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
+      // Set authorization header based on auth type
+      if (authType === 'bearer') {
+        headers['Authorization'] = `Bearer ${apiToken}`;
+      } else {
+        // For 'api_token', 'basic', and other types, use Basic auth
+        const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+        headers['Authorization'] = `Basic ${auth}`;
+      }
+      
+      // Configure fetch options
+      const fetchOptions = { headers };
+      
+      // Handle insecure flag for self-signed certificates
+      if (config.insecure) {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      }
+      
+      const response = await fetch(`${baseUrl}/rest/api/3/myself`, fetchOptions);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const userData = await response.json();
+      console.log(chalk.green(`✅ Connection successful! Connected as: ${userData.displayName} (${userData.emailAddress})`));
+      return true;
+    } catch (error) {
+      console.log(chalk.red(`❌ Connection failed: ${error.message}`));
+      return false;
+    }
+  }
+
+  /**
+   * Load available projects from Jira API - sofortiger Abbruch bei Fehlern
+   */
+  async loadAvailableProjects(config, apiToken) {
+    const baseUrl = config.server.replace(/\/$/, '');
+    const authType = config.authType || 'api_token';
+    
+    let headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+
+    // Set authorization header based on auth type
+    if (authType === 'bearer') {
+      headers['Authorization'] = `Bearer ${apiToken}`;
+    } else {
+      // For 'api_token', 'basic', and other types, use Basic auth
+      const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+    }
+    
+    // Configure fetch options
+    const fetchOptions = { headers };
+    
+    // Handle insecure flag for self-signed certificates
+    if (config.insecure) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+    
+    try {
+      const response = await fetch(`${baseUrl}/rest/api/3/project`, fetchOptions);
+
+      if (!response.ok) {
+        console.error(chalk.red(`Received unexpected response '${response.status} ${response.statusText}' from jira.`));
+        process.exit(1);
+      }
+
+      const projects = await response.json();
+      return projects.map(project => ({
+        key: project.key,
+        name: project.name,
+        id: project.id,
+        type: project.projectTypeKey === 'software' ? 'software' : 'classic'
+      }));
+    } catch (error) {
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        console.error(chalk.red(`Received unexpected response '404 Not Found' from jira.`));
+      } else {
+        console.error(chalk.red(`Received unexpected response '403 Forbidden' from jira.`));
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Load user timezone from Jira API - sofortiger Abbruch bei Fehlern
+   */
+  async loadUserTimezone(config, apiToken) {
+    const baseUrl = config.server.replace(/\/$/, '');
+    const authType = config.authType || 'api_token';
+    
+    let headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+
+    // Set authorization header based on auth type
+    if (authType === 'bearer') {
+      headers['Authorization'] = `Bearer ${apiToken}`;
+    } else {
+      // For 'api_token', 'basic', and other types, use Basic auth
+      const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
+    }
+    
+    // Configure fetch options
+    const fetchOptions = { headers };
+    
+    // Handle insecure flag for self-signed certificates
+    if (config.insecure) {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    }
+    
+    try {
+      const response = await fetch(`${baseUrl}/rest/api/2/myself`, fetchOptions);
+
+      if (!response.ok) {
+        console.error(chalk.red(`Received unexpected response '${response.status} ${response.statusText}' from jira.`));
+        process.exit(1);
+      }
+
+      const userData = await response.json();
+      return userData.timeZone || 'UTC';
+    } catch (error) {
+      if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        console.error(chalk.red(`Received unexpected response '404 Not Found' from jira.`));
+      } else {
+        console.error(chalk.red(`Received unexpected response '401 Unauthorized' from jira.`));
+      }
+      process.exit(1);
+    }
+  }
+
+  /**
+   * Load issue types for a project from Jira API
+   */
+  async loadIssueTypes(config, projectKey, apiToken) {
+    try {
+      const baseUrl = config.server.replace(/\/$/, '');
+      const authType = config.auth_type || 'api_token';
+      
+      let headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
+      // Set authorization header based on auth type
+      if (authType === 'bearer') {
+        headers['Authorization'] = `Bearer ${apiToken}`;
+      } else {
+        // For 'api_token', 'basic', and other types, use Basic auth
+        const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+        headers['Authorization'] = `Basic ${auth}`;
+      }
+      
+      // Configure fetch options
+      const fetchOptions = { headers };
+      
+      // Handle insecure flag for self-signed certificates
+      if (config.insecure) {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      }
+      
+      const response = await fetch(`${baseUrl}/rest/api/3/issue/createmeta?projectKeys=${projectKey}&expand=projects.issuetypes`, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to load issue types`);
+      }
+
+      const data = await response.json();
+      const project = data.projects?.[0];
+      if (!project) {
+        return [];
+      }
+
+      return project.issuetypes.map(issueType => ({
+        id: issueType.id,
+        name: issueType.name,
+        handle: issueType.name,
+        subtask: issueType.subtask || false
+      }));
+    } catch (error) {
+      console.log(chalk.yellow(`⚠️  Could not load issue types: ${error.message}`));
+      return [];
+    }
+  }
+
+  /**
+   * Load all custom fields from Jira API
+   */
+  async loadCustomFields(config, apiToken) {
+    try {
+      const baseUrl = config.server.replace(/\/$/, '');
+      const authType = config.auth_type || 'api_token';
+      
+      let headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
+      // Set authorization header based on auth type
+      if (authType === 'bearer') {
+        headers['Authorization'] = `Bearer ${apiToken}`;
+      } else {
+        // For 'api_token', 'basic', and other types, use Basic auth
+        const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+        headers['Authorization'] = `Basic ${auth}`;
+      }
+      
+      // Configure fetch options
+      const fetchOptions = { headers };
+      
+      // Handle insecure flag for self-signed certificates
+      if (config.insecure) {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      }
+      
+      const response = await fetch(`${baseUrl}/rest/api/3/field`, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to load custom fields`);
+      }
+
+      const fields = await response.json();
+      
+      // Filter only custom fields and format them
+      return fields
+        .filter(field => field.custom && field.id.startsWith('customfield_'))
+        .map(field => ({
+          name: field.name,
+          key: field.id,
+          schema: {
+            datatype: field.schema?.type || 'string'
+          }
+        }));
+    } catch (error) {
+      console.log(chalk.yellow(`⚠️  Could not load custom fields: ${error.message}`));
+      return [];
+    }
+  }
+
+  /**
+   * Detect Epic Name and Link fields from custom fields
+   */
+  async detectEpicFields(customFields) {
+    const epicFields = {
+      name: null,
+      link: null
+    };
+
+    // Common patterns for Epic Name field
+    const epicNamePatterns = [
+      /epic.*name/i,
+      /name.*epic/i,
+      /epic.*summary/i
+    ];
+
+    // Common patterns for Epic Link field
+    const epicLinkPatterns = [
+      /epic.*link/i,
+      /link.*epic/i,
+      /parent.*link/i
+    ];
+
+    for (const field of customFields) {
+      // Check for Epic Name field
+      if (!epicFields.name && epicNamePatterns.some(pattern => pattern.test(field.name))) {
+        epicFields.name = field.key;
+      }
+
+      // Check for Epic Link field
+      if (!epicFields.link && epicLinkPatterns.some(pattern => pattern.test(field.name))) {
+        epicFields.link = field.key;
+      }
+
+      // Break early if both found
+      if (epicFields.name && epicFields.link) {
+        break;
+      }
+    }
+
+    return epicFields;
+  }
+
+  /**
+   * Load available boards for a project from Jira API
+   */
+  async loadAvailableBoards(config, projectKey, apiToken) {
+    try {
+      const baseUrl = config.server.replace(/\/$/, '');
+      const authType = config.auth_type || 'api_token';
+      
+      let headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+
+      // Set authorization header based on auth type
+      if (authType === 'bearer') {
+        headers['Authorization'] = `Bearer ${apiToken}`;
+      } else {
+        // For 'api_token', 'basic', and other types, use Basic auth
+        const auth = Buffer.from(`${config.login}:${apiToken}`).toString('base64');
+        headers['Authorization'] = `Basic ${auth}`;
+      }
+      
+      // Configure fetch options
+      const fetchOptions = { headers };
+      
+      // Handle insecure flag for self-signed certificates
+      if (config.insecure) {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+      }
+      
+      const response = await fetch(`${baseUrl}/rest/agile/1.0/board?projectKeyOrId=${projectKey}`, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to load boards`);
+      }
+
+      const data = await response.json();
+      return data.values.map(board => ({
+        id: board.id,
+        name: board.name,
+        type: board.type.toLowerCase() // Normalize to lowercase (scrum/kanban)
+      }));
+    } catch (error) {
+      throw new Error(`Failed to load boards: ${error.message}`);
+    }
+  }
+
+  /**
+   * Interactive configuration setup with support for non-interactive parameters
+   */
+  async initializeConfiguration(options = {}) {
+    console.log(chalk.blue.bold('🚀 Jira Timesheet CLI Configuration Setup'));
+    console.log(chalk.gray('This will create a configuration compatible with ankitpokhrel/jira-cli\n'));
+    this.apiToken = process.env.JIRA_API_TOKEN || null; // Initialize apiToken
+
+    const configPath = this.getConfigPath(options.config);
+    
+    // STEP 1: Check if config exists and ask for confirmation to overwrite (FIRST PRIORITY)
+    try {
+      await fs.access(configPath);
+      if (!options.force) {
+        const overwriteAnswer = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'overwrite',
+            message: 'Configuration file already exists. Do you want to overwrite it?',
+            default: false
+          }
+        ]);
+        
+        if (!overwriteAnswer.overwrite) {
+          console.log(chalk.yellow('⚠️  Configuration cancelled.'));
+          return;
+        }
+      }
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        throw error;
+      }
+      // File doesn't exist, continue with setup
+    }
+
+    // Validate provided parameters
+    if (options.installation && !['cloud', 'local'].includes(options.installation)) {
+      throw new Error('Invalid installation type. Must be "cloud" or "local".');
+    }
+    
+    if (options.authType && !['basic', 'bearer', 'mtls', 'api_token'].includes(options.authType)) {
+      throw new Error('Invalid auth type. Must be "basic", "bearer", "mtls", or "api_token".');
+    }
+    
+    if (options.server) {
+      const serverValidation = this.validateServerUrl(options.server);
+      if (serverValidation !== true) {
+        throw new Error(`Invalid server URL: ${serverValidation}`);
+      }
+    }
+    
+    if (options.login) {
+      // Validate based on installation type if provided, otherwise assume cloud for email validation
+      const isCloud = options.installation === 'cloud' || (!options.installation && options.login.includes('@'));
+      const loginValidation = isCloud ? this.validateEmail(options.login) :
+        (options.login.trim() ? true : 'Username cannot be empty');
+      if (loginValidation !== true) {
+        throw new Error(`Invalid login: ${loginValidation}`);
+      }
+    }
+    
+    if (options.project) {
+      const projectValidation = this.validateProjectKey(options.project);
+      if (projectValidation !== true) {
+        throw new Error(`Invalid project key: ${projectValidation}`);
+      }
+    }
+    
+    if (options.board) {
+      const boardValidation = this.validateBoardName(options.board);
+      if (boardValidation !== true) {
+        throw new Error(`Invalid board name: ${boardValidation}`);
+      }
+    }
+    
+    // Create backup if config exists (unless --force is used)
+    if (!options.force) {
+      await this.createConfigBackup(configPath);
+    }
+
+    // Step 1: Installation type (use provided value or prompt)
+    let installationAnswer;
+    if (options.installation) {
+      installationAnswer = { installation: options.installation };
+    } else {
+      installationAnswer = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'installation',
+          message: 'Installation type:',
+          choices: [
+            { name: 'Cloud', value: 'cloud' },
+            { name: 'Local', value: 'local' }
+          ],
+          default: 'cloud'
+        }
+      ]);
+    }
+
+    // Step 2: Authentication type (use provided value or prompt based on installation type)
+    let authAnswer;
+    if (options.authType) {
+      authAnswer = { authType: options.authType };
+    } else {
+      const authChoices = installationAnswer.installation === 'cloud'
+        ? [{ name: 'API Token', value: 'api_token' }]
+        : [
+            { name: 'Basic', value: 'basic' },
+            { name: 'Bearer', value: 'bearer' },
+            { name: 'MTLS', value: 'mtls' }
+          ];
+
+      authAnswer = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'authType',
+          message: 'Authentication type:',
+          choices: authChoices,
+          default: authChoices[0].value
+        }
+      ]);
+    }
+
+    // Step 3: Server URL (use provided value or prompt)
+    let serverAnswer;
+    if (options.server) {
+      serverAnswer = { server: options.server.trim().replace(/\/$/, '') };
+    } else {
+      serverAnswer = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'server',
+          message: 'Jira server URL:',
+          validate: this.validateServerUrl,
+          filter: (input) => input.trim().replace(/\/$/, '') // Remove trailing slash
+        }
+      ]);
+    }
+
+    // Step 4: Login (use provided value or prompt - Email for Cloud, Username for Local)
+    let loginAnswer;
+    if (options.login) {
+      loginAnswer = { login: options.login.trim() };
+    } else {
+      const loginMessage = installationAnswer.installation === 'cloud'
+        ? 'Email:'
+        : 'Username:';
+      
+      const loginValidator = installationAnswer.installation === 'cloud'
+        ? this.validateEmail
+        : (input) => {
+            if (!input || typeof input !== 'string') {
+              return 'Username is required';
+            }
+            const trimmed = input.trim();
+            if (!trimmed) {
+              return 'Username cannot be empty';
+            }
+            return true;
+          };
+
+      loginAnswer = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'login',
+          message: loginMessage,
+          validate: loginValidator,
+          filter: (input) => input.trim()
+        }
+      ]);
+    }
+
+    // Combine all basic answers
+    const answers = {
+      ...installationAnswer,
+      ...authAnswer,
+      ...serverAnswer,
+      ...loginAnswer
+    };
+
+    // CRITICAL: Early credential validation - sofortiger Abbruch bei API-Fehlern
+    console.log(chalk.blue('\n🔍 Validating credentials...'));
+    await this.validateCredentialsEarly(answers, this.apiToken);
+
+    // For Bearer auth, get login from API if not provided
+    if (authAnswer.authType === 'bearer' && !options.login) {
+      const userInfo = await this.getUserInfoForBearerAuth(answers, this.apiToken);
+      answers.login = userInfo.emailAddress || userInfo.name;
+      console.log(chalk.green(`✅ Auto-detected login: ${answers.login}`));
+    }
+
+    // Step 6: Load user timezone
+    console.log(chalk.blue('\n🔍 Loading user timezone...'));
+    const timezone = await this.loadUserTimezone(answers, this.apiToken);
+    console.log(chalk.green(`✅ Timezone: ${timezone}`));
+
+    // Step 7: Project selection (use provided value or dynamic loading)
+    let projectAnswer;
+    let selectedProject = null;
+    if (options.project) {
+      projectAnswer = { projectKey: options.project };
+      // Validate project immediately
+      const projects = await this.loadAvailableProjects(answers, this.apiToken);
+      selectedProject = projects.find(p => p.key === options.project);
+      if (!selectedProject) {
+        console.error(chalk.red(`Received unexpected response '403 Forbidden' from jira.`));
+        process.exit(1);
+      }
+    } else {
+      console.log(chalk.blue('\n🔍 Loading available projects...'));
+      
+      let projectChoices = [];
+      let projects = [];
+      projects = await this.loadAvailableProjects(answers, this.apiToken);
+      projectChoices = projects.map(project => ({
+        name: `${project.key} - ${project.name} (${project.type})`,
+        value: project.key
+      }));
+      
+      if (projectChoices.length === 0) {
+        console.log(chalk.yellow('⚠️  No projects found or accessible.'));
+        projectChoices = [{ name: 'Skip project selection', value: null }];
+      }
+
+      projectAnswer = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'projectKey',
+          message: 'Select default project:',
+          choices: projectChoices,
+          pageSize: 10
+        }
+      ]);
+
+      // Find selected project details
+      if (projectAnswer.projectKey) {
+        selectedProject = projects.find(p => p.key === projectAnswer.projectKey);
+      }
+    }
+
+    // Step 8: Board selection (use provided value or dynamic loading)
+    let boardAnswer = { boardId: null };
+    let selectedBoard = null;
+    if (options.board && projectAnswer.projectKey) {
+      // Find board by name if provided
+      try {
+        const boards = await this.loadAvailableBoards(answers, projectAnswer.projectKey, this.apiToken);
+        const foundBoard = boards.find(board => board.name === options.board);
+        if (foundBoard) {
+          boardAnswer = { boardId: foundBoard.id };
+          selectedBoard = foundBoard;
+        } else {
+          console.log(chalk.yellow(`⚠️  Board "${options.board}" not found. Skipping board selection.`));
+        }
+      } catch (error) {
+        console.log(chalk.yellow(`⚠️  Could not load boards: ${error.message}`));
+      }
+    } else if (projectAnswer.projectKey && !options.board) {
+      console.log(chalk.blue('\n🔍 Loading available boards...'));
+      
+      try {
+        const boards = await this.loadAvailableBoards(answers, projectAnswer.projectKey, this.apiToken);
+        if (boards.length > 0) {
+          const boardChoices = [
+            { name: 'None (skip board selection)', value: null },
+            ...boards.map(board => ({
+              name: `${board.name} (${board.type})`,
+              value: board.id
+            }))
+          ];
+
+          boardAnswer = await inquirer.prompt([
+            {
+              type: 'list',
+              name: 'boardId',
+              message: 'Select default board (optional):',
+              choices: boardChoices,
+              pageSize: 10
+            }
+          ]);
+
+          // Find selected board details
+          if (boardAnswer.boardId) {
+            selectedBoard = boards.find(b => b.id === boardAnswer.boardId);
+          }
+        }
+      } catch (error) {
+        console.log(chalk.yellow(`⚠️  Could not load boards: ${error.message}`));
+      }
+    }
+
+    // Step 9: Load additional API metadata if project is selected
+    let issueTypes = [];
+    let customFields = [];
+    let epicFields = { name: null, link: null };
+
+    if (projectAnswer.projectKey) {
+      console.log(chalk.blue('\n🔍 Loading issue types...'));
+      issueTypes = await this.loadIssueTypes(answers, projectAnswer.projectKey, this.apiToken);
+      console.log(chalk.green(`✅ Loaded ${issueTypes.length} issue types`));
+
+      console.log(chalk.blue('\n🔍 Loading custom fields...'));
+      customFields = await this.loadCustomFields(answers, this.apiToken);
+      console.log(chalk.green(`✅ Loaded ${customFields.length} custom fields`));
+
+      console.log(chalk.blue('\n🔍 Detecting epic fields...'));
+      epicFields = await this.detectEpicFields(customFields);
+      if (epicFields.name || epicFields.link) {
+        console.log(chalk.green(`✅ Epic fields detected: name=${epicFields.name || 'none'}, link=${epicFields.link || 'none'}`));
+      } else {
+        console.log(chalk.yellow('⚠️  No epic fields detected'));
+      }
+    }
+
+    // Combine project and board answers
+    Object.assign(answers, projectAnswer, boardAnswer);
+
+    // Step 8: Timesheet-specific options (skip if non-interactive)
+    let timesheetAnswers;
+    if (options.installation || options.server || options.login) {
+      // Non-interactive mode - use defaults
+      timesheetAnswers = {
+        enableTimesheetFeatures: true,
+        defaultFormat: 'table',
+        groupByUser: true
+      };
+    } else {
+      // Interactive mode
+      timesheetAnswers = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'enableTimesheetFeatures',
+          message: 'Enable timesheet-specific features?',
+          default: true
+        },
+        {
+          type: 'list',
+          name: 'defaultFormat',
+          message: 'Default output format:',
+          choices: ['table', 'csv', 'json', 'markdown'],
+          default: 'table',
+          when: (answers) => answers.enableTimesheetFeatures
+        },
+        {
+          type: 'confirm',
+          name: 'groupByUser',
+          message: 'Group worklogs by user by default?',
+          default: true,
+          when: (answers) => answers.enableTimesheetFeatures
+        }
+      ]);
+    }
+
+    // Build configuration object with complete structure like original jira-cli
+    const config = {
+      auth_type: answers.authType,
+      installation: answers.installation,
+      server: answers.server,
+      login: answers.login,
+      timezone: timezone
+    };
+
+    // Add insecure flag if specified
+    if (options.insecure) {
+      config.insecure = true;
+    }
+
+    // Add project configuration with full metadata
+    if (answers.projectKey && selectedProject) {
+      config.project = {
+        key: answers.projectKey,
+        type: selectedProject.type
+      };
+    }
+
+    // Add board configuration with full metadata
+    if (answers.boardId && selectedBoard) {
+      config.board = {
+        id: answers.boardId,
+        name: selectedBoard.name,
+        type: selectedBoard.type
+      };
+    }
+
+    // Add epic fields configuration
+    if (epicFields.name || epicFields.link) {
+      config.epic = {};
+      if (epicFields.name) {
+        config.epic.name = epicFields.name;
+      }
+      if (epicFields.link) {
+        config.epic.link = epicFields.link;
+      }
+    }
+
+    // Add issue configuration with types and custom fields
+    if (issueTypes.length > 0 || customFields.length > 0) {
+      config.issue = {};
+      
+      if (issueTypes.length > 0) {
+        config.issue.types = issueTypes;
+      }
+      
+      if (customFields.length > 0) {
+        config.issue.fields = {
+          custom: customFields
+        };
+      }
+    }
+
+    // Add timesheet-specific configuration
+    if (timesheetAnswers.enableTimesheetFeatures) {
+      config.timesheet = {
+        default_format: timesheetAnswers.defaultFormat,
+        group_by_user: timesheetAnswers.groupByUser
+      };
+    }
+
+    // Alle API-Aufrufe waren erfolgreich - jetzt Konfiguration speichern
+    // Ensure config directory exists
+    const configDir = path.dirname(configPath);
+    await fs.mkdir(configDir, { recursive: true });
+
+    // Write configuration
+    const yamlContent = yaml.dump(config, {
+      indent: 2,
+      lineWidth: -1,
+      noRefs: true
+    });
+
+    await fs.writeFile(configPath, yamlContent, 'utf-8');
+
+    console.log(chalk.green(`\n✅ Configuration saved to: ${configPath}`));
+    
+    // Show next steps
+    console.log(chalk.blue('\n📋 Next Steps:'));
+    console.log(chalk.gray('1. Set your credentials as environment variable:'));
+    console.log(chalk.white(`   export JIRA_API_TOKEN="your-api-token"`));
+    console.log(chalk.gray('2. Test the connection:'));
+    console.log(chalk.white(`   timesheet test`));
+    console.log(chalk.gray('3. Generate your first timesheet:'));
+    console.log(chalk.white(`   timesheet generate${answers.projectKey ? ` -p ${answers.projectKey}` : ''}`));
+
+    if (answers.installation === 'cloud' && answers.authType === 'api_token') {
+      console.log(chalk.yellow('\n💡 Tip: For Atlassian Cloud, create an API token at:'));
+      console.log(chalk.white('   https://id.atlassian.com/manage-profile/security/api-tokens'));
+    }
+
+    if (config.insecure) {
+      console.log(chalk.yellow('\n⚠️  Warning: TLS certificate verification is disabled (--insecure flag).'));
+      console.log(chalk.gray('   This should only be used in development environments.'));
+    }
   }
 }
 
@@ -687,20 +1718,24 @@ program
   .version('1.0.0');
 
 program
-  .option('-c, --config <file>', 'Config file (default: ~/.config/.jira/.config.yml)')
-  .hook('preAction', async (thisCommand) => {
-    const globalOptions = program.opts();
-    const commandOptions = thisCommand.opts();
-    
-    const configFile = commandOptions.config || globalOptions.config;
-    
-    try {
-      await cli.loadConfig(configFile);
-    } catch (error) {
-      console.error(chalk.red(`❌ ${error.message}`));
-      process.exit(1);
-    }
-  });
+  .option('-c, --config <file>', 'Config file (default: ~/.config/.jira/.config.yml)');
+
+/**
+ * Helper function to load configuration for commands that need it
+ */
+async function loadConfigForCommand(command) {
+  const globalOptions = program.opts();
+  const commandOptions = command.opts();
+  
+  const configFile = commandOptions.config || globalOptions.config;
+  
+  try {
+    await cli.loadConfig(configFile);
+  } catch (error) {
+    console.error(chalk.red(`❌ ${error.message}`));
+    process.exit(1);
+  }
+}
 
 program
   .command('generate')
@@ -712,8 +1747,9 @@ program
   .option('-u, --user <email...>', 'Filter by user email (can be specified multiple times)')
   .addOption(new Option('-f, --format <format>', 'Output format').choices(['table', 'json', 'csv', 'markdown']).default('table'))
   .option('-o, --output <file>', 'Output file path')
-  .action(async (options) => {
+  .action(async (options, command) => {
     try {
+      await loadConfigForCommand(command);
       await cli.generateTimesheet(options);
     } catch (error) {
       console.error(chalk.red(`❌ ${error.message}`));
@@ -724,8 +1760,9 @@ program
 program
   .command('config')
   .description('Show current jira-cli configuration')
-  .action(async () => {
+  .action(async (options, command) => {
     try {
+      await loadConfigForCommand(command);
       await cli.showConfig();
     } catch (error) {
       console.error(chalk.red(`❌ ${error.message}`));
@@ -734,10 +1771,32 @@ program
   });
 
 program
+  .command('init')
+  .description('Initialize Jira configuration interactively')
+  .option('-c, --config <file>', 'Config file path (default: ~/.config/.jira/.config.yml)')
+  .option('--installation <type>', 'Installation type (cloud, local)')
+  .option('--server <url>', 'Jira server URL')
+  .option('--login <username>', 'Login username or email')
+  .option('--auth-type <type>', 'Authentication type (basic, bearer, mtls, api_token)')
+  .option('--project <key>', 'Default project key')
+  .option('--board <name>', 'Default board name')
+  .option('--force', 'Overwrite existing configuration without confirmation')
+  .option('--insecure', 'Skip TLS certificate verification')
+  .action(async (commandOptions) => {
+    const globalOptions = program.opts();
+    const effectiveConfigPath = commandOptions.config || globalOptions.config;
+    await cli.initializeConfiguration({
+      config: effectiveConfigPath,
+      ...commandOptions
+    });
+  });
+
+program
   .command('test')
   .description('Test connection to Jira')
-  .action(async () => {
+  .action(async (options, command) => {
     try {
+      await loadConfigForCommand(command);
       await cli.testConnection();
     } catch (error) {
       console.error(chalk.red(`❌ ${error.message}`));

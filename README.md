@@ -4,7 +4,10 @@ Ein Node.js Kommandozeilen-Tool zur Generierung von Stundenzetteln aus Jira-Work
 
 ## 🚀 Features
 
-- ✅ **Jira-CLI Kompatibilität** - Nutzt bestehende Konfiguration
+- ✅ **Interaktive & Nicht-interaktive Konfiguration** - Vollständiges Setup mit `init`-Kommando
+- ✅ **Frühe Credential-Validierung** - Sofortiger Abbruch bei API-Fehlern wie im Original jira-cli
+- ✅ **Automatische Metadaten-Sammlung** - Timezone, Issue Types, Custom Fields, Epic Fields
+- ✅ **Jira-CLI Kompatibilität** - Nutzt und erweitert bestehende Konfiguration
 - ✅ **Multi-User Support** - Einzelne oder mehrere Benutzer gleichzeitig
 - ✅ **Dreifach-Gruppierung** - Benutzer → Tag → Einträge
 - ✅ **Integrierte Tagessummen** - Direkt in Tabellen
@@ -14,7 +17,8 @@ Ein Node.js Kommandozeilen-Tool zur Generierung von Stundenzetteln aus Jira-Work
 - ✅ **Umfangreiche Filter** - Projekt, Benutzer, Zeitraum
 - ✅ **Cross-Platform** - Windows, macOS, Linux
 - ✅ **Konfigurierbare Pfade** - JIRA_CONFIG_FILE Support
-- ✅ **Fehlerbehandlung** - Detaillierte Error-Messages
+- ✅ **Insecure Flag Support** - TLS-Zertifikatsprüfung überspringen
+- ✅ **Robuste Fehlerbehandlung** - Spezifische Fehlermeldungen und sofortiger Abbruch
 
 ## 🚀 Installation
 
@@ -37,6 +41,9 @@ npm run build:all
 
 # Binary verwenden (Windows)
 ./binaries/timesheet-win-x64.exe
+
+# Erste Konfiguration (empfohlen)
+./binaries/timesheet-linux-x64 init
 ```
 
 ### Option 2: Lokale Installation
@@ -69,10 +76,188 @@ Das Tool verwendet folgende Node.js Packages:
 
 - **Node.js** >= 18.0.0
 - **Bestehende jira-cli Installation** und Konfiguration
-- **Jira API Token** für Authentifizierung
+- **Jira API Token** für Authentifizierung (siehe [API Token erstellen](#-api-token-erstellen))
 - **Jira Cloud oder Server** mit entsprechenden Berechtigungen
 
+## 🔑 API Token erstellen
+
+Ein API Token ist erforderlich für die sichere Authentifizierung mit Jira. Es ersetzt Ihr Passwort und bietet bessere Sicherheit und Kontrolle über den Zugriff.
+
+### Für Atlassian Cloud (Empfohlen)
+
+#### Was ist ein API Token?
+- **Sicherheitstoken** anstelle Ihres Passworts
+- **Spezifische Berechtigung** nur für API-Zugriffe
+- **Widerrufbar** ohne Passwort-Änderung
+- **Audit-fähig** - alle API-Zugriffe werden protokolliert
+
+#### Schritt-für-Schritt Anleitung:
+
+**1. Atlassian Account öffnen:**
+- Gehen Sie zu https://id.atlassian.com/manage-profile/security/api-tokens
+- Melden Sie sich mit Ihrem Atlassian Account an
+- Sie sehen eine Übersicht Ihrer bestehenden API Tokens
+
+**2. API Token erstellen:**
+- Klicken Sie auf den blauen Button **"Create API token"**
+- Geben Sie einen **beschreibenden Namen** ein (z.B. "Timesheet CLI", "Stundenzettel Tool")
+- Der Name hilft Ihnen später, den Token zu identifizieren
+- Klicken Sie auf **"Create"**
+
+**3. Token kopieren:**
+- ⚠️ **WICHTIG:** Das Token wird nur **einmal** angezeigt
+- Kopieren Sie das Token **sofort** in die Zwischenablage
+- Speichern Sie es **sicher** (z.B. in einem Passwort-Manager)
+- Nach dem Schließen des Dialogs ist das Token nicht mehr einsehbar
+
+**4. Token als Umgebungsvariable setzen:**
+
+**Temporär (nur für aktuelle Terminal-Session):**
+```bash
+export JIRA_API_TOKEN="your-api-token-here"
+```
+
+**Permanent (empfohlen):**
+```bash
+# Für Bash (~/.bashrc)
+echo 'export JIRA_API_TOKEN="your-api-token-here"' >> ~/.bashrc
+source ~/.bashrc
+
+# Für Zsh (~/.zshrc)
+echo 'export JIRA_API_TOKEN="your-api-token-here"' >> ~/.zshrc
+source ~/.zshrc
+
+# Für Fish (~/.config/fish/config.fish)
+echo 'set -gx JIRA_API_TOKEN "your-api-token-here"' >> ~/.config/fish/config.fish
+source ~/.config/fish/config.fish
+```
+
+**5. Token testen:**
+```bash
+# Prüfen ob Token gesetzt ist
+echo $JIRA_API_TOKEN
+
+# Mit timesheet-cli testen
+timesheet test
+```
+
+#### Sicherheitshinweise:
+- ✅ **Niemals in Code oder Repositories speichern**
+- ✅ **Nicht in Slack, E-Mails oder Chat-Nachrichten teilen**
+- ✅ **Regelmäßig erneuern** (alle 6-12 Monate)
+- ✅ **Bei Verdacht auf Kompromittierung sofort löschen**
+- ✅ **Nur für notwendige Anwendungen verwenden**
+- ✅ **Beschreibende Namen für bessere Übersicht verwenden**
+
+#### Token-Verwaltung:
+- **Anzeigen:** Gehen Sie zu den API Token Settings, um alle Ihre Tokens zu sehen
+- **Löschen:** Klicken Sie auf "Delete" neben einem Token, um es zu widerrufen
+- **Erneuern:** Löschen Sie das alte Token und erstellen Sie ein neues
+
+### Für Jira Server/Data Center
+
+Für lokale Jira-Installationen haben Sie mehrere Authentifizierungsoptionen:
+
+#### Option 1: Personal Access Tokens (PATs) - Empfohlen für Jira Server 8.14+
+
+**Vorteile:**
+- Ähnlich wie Cloud API Tokens
+- Bessere Sicherheit als Passwörter
+- Granulare Berechtigungen möglich
+
+**Anleitung:**
+1. Gehen Sie zu Ihrem Jira Server: `https://your-jira-server.com`
+2. Klicken Sie auf Ihr **Profilbild** → **"Personal Access Tokens"**
+3. Klicken Sie auf **"Create token"**
+4. Geben Sie einen **Namen** und **Ablaufzeit** ein
+5. Wählen Sie die benötigten **Berechtigungen** aus
+6. Kopieren Sie das Token und setzen Sie es als `JIRA_API_TOKEN`
+
+#### Option 2: Basic Authentication - Für ältere Jira Versionen
+
+**Hinweis:** Weniger sicher, aber manchmal notwendig für ältere Installationen.
+
+```bash
+# Ihr normales Jira-Passwort verwenden
+export JIRA_API_TOKEN="your-jira-password"
+```
+
+**Konfiguration für Server/Data Center:**
+```bash
+# Init mit Server-Installation
+timesheet init --installation local --server https://your-jira-server.com --auth-type basic
+```
+
+### Troubleshooting
+
+#### Häufige Probleme:
+
+**1. "Authentication failed" Fehler:**
+```bash
+# Token prüfen
+echo $JIRA_API_TOKEN
+
+# Neu setzen falls leer
+export JIRA_API_TOKEN="your-token"
+
+# Verbindung testen
+timesheet test
+```
+
+**2. Token funktioniert nicht:**
+- Prüfen Sie, ob das Token korrekt kopiert wurde (keine Leerzeichen)
+- Stellen Sie sicher, dass Sie das richtige Atlassian-Konto verwenden
+- Versuchen Sie, ein neues Token zu erstellen
+
+**3. "Unauthorized" bei Server-Installation:**
+- Prüfen Sie die Server-URL (http vs. https)
+- Verwenden Sie `--insecure` Flag bei selbst-signierten Zertifikaten
+- Kontaktieren Sie Ihren Jira-Administrator für Berechtigungen
+
+**4. Token versehentlich geteilt:**
+- Gehen Sie **sofort** zu den API Token Settings
+- **Löschen** Sie das kompromittierte Token
+- Erstellen Sie ein **neues Token**
+- Aktualisieren Sie Ihre Umgebungsvariable
+
+#### Erweiterte Konfiguration:
+
+**Mehrere Jira-Instanzen:**
+```bash
+# Verschiedene Tokens für verschiedene Projekte
+export JIRA_API_TOKEN_PROD="token-for-production"
+export JIRA_API_TOKEN_DEV="token-for-development"
+
+# Verwendung mit verschiedenen Config-Dateien
+timesheet -c ~/.config/.jira/.config-prod.yml generate
+timesheet -c ~/.config/.jira/.config-dev.yml generate
+```
+
+**CI/CD Integration:**
+```bash
+# In GitHub Actions, GitLab CI, etc.
+# Token als Secret speichern, nicht als Environment Variable im Code
+```
+
 ## 🎯 Verwendung
+
+### Erste Schritte
+```bash
+# 1. API Token erstellen und setzen (WICHTIG: Vor init!)
+# Siehe detaillierte Anleitung: https://github.com/your-repo#-api-token-erstellen
+export JIRA_API_TOKEN="your-api-token"
+
+# 2. Interaktive Konfiguration (empfohlen für neue Benutzer)
+timesheet init
+
+# 3. Konfiguration anzeigen
+timesheet config
+
+# 4. Verbindung testen (optional, da bereits während init validiert)
+timesheet test
+```
+
+**📖 Wichtiger Hinweis:** Bevor Sie `timesheet init` ausführen, müssen Sie ein API Token erstellen und als Umgebungsvariable setzen. Eine detaillierte Schritt-für-Schritt Anleitung finden Sie im Abschnitt [🔑 API Token erstellen](#-api-token-erstellen).
 
 ### Basis-Kommandos
 ```bash
@@ -95,12 +280,6 @@ timesheet generate -p TEST -u max.mustermann@firma.com -u anna.schmidt@firma.com
 
 # Alle Benutzer (Standard-Verhalten)
 timesheet generate -p TEST
-
-# Konfiguration anzeigen
-timesheet config
-
-# Verbindung testen
-timesheet test
 ```
 
 ### Ausgabeformate
@@ -148,9 +327,23 @@ JIRA_CONFIG_FILE=/path/to/env-config.yml timesheet -c /path/to/param-config.yml 
 ### Hauptkommandos
 | Kommando | Alias | Beschreibung |
 |----------|-------|--------------|
+| `init` | - | Interaktive oder nicht-interaktive Konfiguration erstellen |
 | `generate` | `gen` | Stundenzettel für ein Projekt generieren |
 | `config` | - | Aktuelle jira-cli Konfiguration anzeigen |
 | `test` | - | Verbindung zu Jira testen |
+
+### Init Command Optionen
+| Option | Beschreibung |
+|--------|--------------|
+| `-c, --config <file>` | Pfad zur Konfigurationsdatei (Standard: ~/.config/.jira/.config.yml) |
+| `--installation <type>` | Installation type: `cloud`, `local` |
+| `--server <url>` | Jira server URL (z.B. https://company.atlassian.net) |
+| `--login <username>` | Login username oder email |
+| `--auth-type <type>` | Authentication type: `basic`, `bearer`, `mtls`, `api_token` |
+| `--project <key>` | Default project key (z.B. MYPROJ) |
+| `--board <name>` | Default board name |
+| `--force` | Bestehende Konfiguration ohne Bestätigung überschreiben |
+| `--insecure` | TLS-Zertifikatsprüfung überspringen |
 
 ### Generate Command Optionen
 | Option | Kurz | Beschreibung |
@@ -206,26 +399,57 @@ Das Tool nutzt die gleiche Konfiguration wie jira-cli:
 2. `JIRA_CONFIG_FILE` Environment Variable
 3. Standard: `~/.config/.jira/.config.yml`
 
-### Beispiel jira-cli Konfiguration
+### Vollständige Konfigurationsstruktur
+Das Tool erstellt eine vollständige Konfiguration mit automatischer Metadaten-Sammlung:
+
 ```yaml
-server: https://your-company.atlassian.net
-login: your-email@company.com
-project: DEFAULTPROJECT
-installation: Cloud
-auth_type: basic
-
-ui:
-  display: plain
-
+auth_type: api_token
+installation: cloud
+server: https://company.atlassian.net
+login: user@company.com
+timezone: Europe/Berlin
+project:
+  key: SB
+  type: classic
+board:
+  id: 178
+  name: "Board Name"
+  type: scrum
+epic:
+  name: customfield_10011
+  link: customfield_10014
 issue:
   types:
-    Bug:
-      name: Bug
-      handle: Bug
-    Task:
-      name: Task
-      handle: Task
+    - id: "10001"
+      name: "Bug"
+      handle: "Bug"
+      subtask: false
+    - id: "10002"
+      name: "Task"
+      handle: "Task"
+      subtask: false
+  fields:
+    custom:
+      - name: "Epic Name"
+        key: "customfield_10011"
+        schema:
+          datatype: "string"
+      - name: "Epic Link"
+        key: "customfield_10014"
+        schema:
+          datatype: "string"
+timesheet:
+  default_format: table
+  group_by_user: true
 ```
+
+#### Automatische Metadaten-Sammlung
+Das init-Kommando sammelt automatisch:
+- **Timezone**: Benutzer-Zeitzone aus Jira-Profil
+- **Issue Types**: Alle verfügbaren Issue-Typen für das Projekt
+- **Custom Fields**: Alle benutzerdefinierten Felder
+- **Epic Fields**: Automatische Erkennung von Epic Name und Link Feldern
+- **Board Information**: Board-ID, Name und Typ (Scrum/Kanban)
 
 ## 📁 Ausgabeformate
 
@@ -294,7 +518,106 @@ Max Mustermann,01.12.2024,TEST-123,"Bug fix","2h 30m",9000,"Fixed it","2024-12-0
 
 ## 🔧 Setup und Konfiguration
 
-### 1. Jira-CLI Setup (falls noch nicht vorhanden)
+### Methode 1: Interaktive Konfiguration (Empfohlen)
+
+**⚠️ Wichtig:** Bevor Sie `timesheet init` ausführen, müssen Sie ein API Token erstellen und setzen. Siehe [🔑 API Token erstellen](#-api-token-erstellen) für eine detaillierte Anleitung.
+
+```bash
+# 1. API Token erstellen und setzen (siehe detaillierte Anleitung oben)
+export JIRA_API_TOKEN="your-api-token"
+
+# 2. Einfache interaktive Konfiguration
+timesheet init
+
+# 3. Konfiguration testen
+timesheet test
+```
+
+Das `init`-Kommando führt Sie durch die komplette interaktive Konfiguration mit früher Credential-Validierung:
+
+#### Interaktiver Setup-Prozess
+1. **Installationstyp**: Cloud (Atlassian Cloud) oder Local (Jira Server/Data Center)
+2. **Authentifizierungstyp**:
+   - Cloud: API Token (Standard)
+   - Local: Basic, Bearer, MTLS
+3. **Jira Server URL**: z.B. https://your-domain.atlassian.net
+4. **Login**: Email für Cloud, Username für Local
+5. **Frühe Credential-Validierung**: Sofortiger Abbruch bei API-Fehlern
+6. **Automatische Metadaten-Sammlung**: Timezone, Issue Types, Custom Fields
+7. **Projekt-Auswahl**: Dynamisch geladene Liste verfügbarer Projekte
+8. **Board-Auswahl**: Optionale Board-Auswahl für das gewählte Projekt
+9. **Epic Field Detection**: Automatische Erkennung von Epic Name/Link Feldern
+10. **Timesheet-Optionen**: Konfiguration spezifischer Einstellungen
+
+#### Erweiterte Features
+- ✅ **Frühe Credential-Validierung** - Sofortiger Abbruch bei API-Fehlern wie im Original jira-cli
+- ✅ **Automatische Metadaten-Sammlung** - Timezone, Issue Types, Custom Fields, Epic Fields
+- ✅ **Vollständige Konfigurationsstruktur** - Kompatibel mit jira-cli und erweitert
+- ✅ **Automatische Validierung** - Server URL, E-Mail-Format, Projekt-Keys
+- ✅ **Backup-Mechanismus** - Automatisches Backup bestehender Konfigurationen
+- ✅ **Nicht-interaktive Unterstützung** - Alle Parameter über Kommandozeile konfigurierbar
+- ✅ **Insecure Flag Support** - TLS-Zertifikatsprüfung überspringen für interne Server
+
+#### Init-Kommando Optionen
+```bash
+timesheet init [options]
+
+Optionen:
+  -c, --config <file>         Pfad zur Konfigurationsdatei (Standard: ~/.config/.jira/.config.yml)
+  --installation <type>       Installation type (cloud, local)
+  --server <url>              Jira server URL
+  --login <username>          Login username or email
+  --auth-type <type>          Authentication type (basic, bearer, mtls, api_token)
+  --project <key>             Default project key
+  --board <name>              Default board name
+  --force                     Overwrite existing configuration without confirmation
+  --insecure                  Skip TLS certificate verification
+  -h, --help                  Hilfe anzeigen
+```
+
+#### Nicht-interaktive Nutzung
+Das init-Kommando unterstützt vollständig nicht-interaktive Konfiguration:
+
+```bash
+# Vollständig nicht-interaktiv für Cloud-Installation
+timesheet init --installation cloud --server https://company.atlassian.net --login user@company.com --auth-type api_token --project MYPROJ --force
+
+# Für lokale Jira-Installation mit Basic Auth
+timesheet init --installation local --server https://internal-jira.company.com --login username --auth-type basic --project TEST --insecure
+
+# Mit Board-Auswahl
+timesheet init --installation cloud --server https://company.atlassian.net --login user@company.com --auth-type api_token --project MYPROJ --board "Sprint Board" --force
+```
+
+#### Nach der Konfiguration
+```bash
+# 1. API Token als Umgebungsvariable setzen (WICHTIG: Muss vor init gesetzt werden!)
+# Siehe detaillierte Anleitung: https://github.com/your-repo#-api-token-erstellen
+export JIRA_API_TOKEN="your-token-or-password"
+
+# 2. Konfiguration erstellen (Credentials werden während init validiert)
+timesheet init
+
+# 3. Verbindung testen (optional, da bereits während init validiert)
+timesheet test
+
+# 4. Ersten Stundenzettel generieren
+timesheet generate -p YOUR_PROJECT_KEY
+```
+
+**Wichtiger Hinweis zur Credential-Validierung:**
+Das init-Kommando führt eine frühe Credential-Validierung durch. Das bedeutet:
+- ✅ **JIRA_API_TOKEN muss VOR dem init-Kommando gesetzt werden** (siehe [🔑 API Token erstellen](#-api-token-erstellen))
+- ✅ **Sofortiger Abbruch bei ungültigen Credentials**
+- ✅ **Keine Konfiguration wird bei API-Fehlern gespeichert**
+- ✅ **Automatische Metadaten-Sammlung nur bei erfolgreicher Authentifizierung**
+
+**📖 API Token erstellen:**
+Für eine detaillierte Schritt-für-Schritt Anleitung zur API-Token-Erstellung siehe [🔑 API Token erstellen](#-api-token-erstellen). Dort finden Sie Anleitungen für sowohl Atlassian Cloud als auch Jira Server/Data Center.
+
+### Methode 2: Manuelle Konfiguration
+
+#### 1. Jira-CLI Setup (falls noch nicht vorhanden)
 ```bash
 # jira-cli installieren
 npm install -g jira-cli
@@ -303,7 +626,10 @@ npm install -g jira-cli
 jira init
 ```
 
-### 2. API Token konfigurieren
+#### 2. API Token konfigurieren
+
+**📖 Detaillierte Anleitung:** Siehe [🔑 API Token erstellen](#-api-token-erstellen) für eine vollständige Schritt-für-Schritt Anleitung zur Token-Erstellung und -Konfiguration.
+
 ```bash
 # API Token als Environment Variable setzen
 export JIRA_API_TOKEN="your-api-token-here"
@@ -312,15 +638,35 @@ export JIRA_API_TOKEN="your-api-token-here"
 echo 'export JIRA_API_TOKEN="your-api-token-here"' >> ~/.bashrc
 ```
 
-**API Token erstellen:** [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
-
-### 3. Konfiguration testen
+#### 3. Konfiguration testen
 ```bash
 timesheet config  # Aktuelle Konfiguration anzeigen
 timesheet test    # Verbindung zu Jira testen
 ```
 
+### Kompatibilität mit jira-cli
+
+Das Tool ist vollständig kompatibel mit [ankitpokhrel/jira-cli](https://github.com/ankitpokhrel/jira-cli):
+- ✅ **Bestehende Konfigurationen** - Funktionieren ohne Änderungen
+- ✅ **Gleiche Konfigurationsdateien** - `~/.config/.jira/.config.yml`
+- ✅ **Identische Authentifizierung** - API Token über Environment Variables
+- ✅ **Nahtlose Integration** - Beide Tools parallel verwendbar
+
 ## 💡 Beispiele
+
+### Erste Schritte
+```bash
+# Neue Installation - API Token erstellen und setzen (siehe detaillierte Anleitung)
+# 📖 Vollständige Anleitung: https://github.com/your-repo#-api-token-erstellen
+export JIRA_API_TOKEN="your-api-token"
+timesheet init
+
+# Bestehende jira-cli Konfiguration verwenden
+timesheet config  # Konfiguration prüfen
+timesheet test    # Verbindung testen
+```
+
+**💡 Tipp:** Für eine detaillierte Schritt-für-Schritt Anleitung zur API-Token-Erstellung siehe [🔑 API Token erstellen](#-api-token-erstellen).
 
 ### Basis-Verwendung
 ```bash
@@ -391,7 +737,10 @@ timesheet -c ./project-config.yml generate -p SPECIAL
 
 **"Configuration file not found"**
 ```bash
-# Prüfen Sie die jira-cli Installation
+# Neue Konfiguration erstellen
+timesheet init
+
+# Oder bestehende jira-cli Konfiguration verwenden
 jira --version
 jira init
 
@@ -407,6 +756,25 @@ export JIRA_API_TOKEN="your-token"
 # Token testen
 timesheet test
 ```
+
+**"Received unexpected response '401 Unauthorized' from jira."**
+- API Token ist ungültig oder abgelaufen
+- Überprüfen Sie Ihre Anmeldedaten
+- Erstellen Sie ein neues API Token
+
+**"Received unexpected response '403 Forbidden' from jira."**
+- Keine Berechtigung für das angegebene Projekt
+- Überprüfen Sie Projekt-Schlüssel und Berechtigungen
+
+**"Received unexpected response '404 Not Found' from jira."**
+- Server URL ist falsch oder Server nicht erreichbar
+- Überprüfen Sie die Jira Server URL
+
+### Fehlerbehandlung
+Das Tool implementiert sofortigen Abbruch bei API-Fehlern:
+- **Frühe Validierung**: Credentials werden vor der Konfigurationserstellung validiert
+- **Keine Konfiguration bei Fehlern**: Bei API-Fehlern wird keine Konfiguration gespeichert
+- **Spezifische Fehlermeldungen**: Klare Fehlermeldungen wie im Original jira-cli
 
 **"No issues found matching criteria"**
 - Prüfen Sie den Projekt-Schlüssel: `jira project list`

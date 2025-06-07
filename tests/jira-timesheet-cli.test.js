@@ -907,8 +907,8 @@ project:
         vi.spyOn(yaml, 'load').mockReturnValue(null);
         process.env.JIRA_API_TOKEN = 'test-token';
 
-        const result = await cli.loadConfig();
-        expect(result).toBeNull();
+        await expect(cli.loadConfig())
+          .rejects.toThrow('Invalid configuration file: Configuration must be a valid object');
         
         mockFs.restore();
       });

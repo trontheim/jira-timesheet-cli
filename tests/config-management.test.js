@@ -222,8 +222,8 @@ describe('Configuration Management', () => {
         const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
   
-        const result = await localCli.loadConfig('/mock/config.yml');
-        expect(result).toBeUndefined();
+        await expect(localCli.loadConfig('/mock/config.yml'))
+          .rejects.toThrow('Invalid configuration file: Configuration must be a valid object');
       });
 
       it('should handle malformed config structure', async () => {
@@ -236,8 +236,8 @@ describe('Configuration Management', () => {
         const localCli = new JiraTimesheetCLI();
         process.env.JIRA_API_TOKEN = 'test-token';
 
-        const result = await localCli.loadConfig('/mock/config.yml');
-        expect(localCli.config).toBe('just a string');
+        await expect(localCli.loadConfig('/mock/config.yml'))
+          .rejects.toThrow('Invalid configuration file: Configuration must be a valid object');
       });
 
       it('should handle file system errors', async () => {
