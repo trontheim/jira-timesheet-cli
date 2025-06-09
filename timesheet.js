@@ -364,11 +364,23 @@ class JiraTimesheetCLI {
   /**
    * Group worklogs by user and then by date
    */
-  groupByUserAndDate(entries) {
+  groupByUserAndDate(entries, config) {
     const grouped = new Map();
     
+    // Use timezone from config with fallback to 'Europe/Berlin'
+    let timezone = config?.timesheet?.timezone || 'Europe/Berlin';
+    
+    // Validate timezone and fallback to 'Europe/Berlin' if invalid
+    try {
+      // Test if timezone is valid by attempting to use it
+      new Date().toLocaleDateString('de-DE', { timeZone: timezone });
+    } catch (error) {
+      console.warn(`Invalid timezone '${timezone}' specified, falling back to 'Europe/Berlin'`);
+      timezone = 'Europe/Berlin';
+    }
+    
     entries.forEach(entry => {
-      const date = new Date(entry.started).toLocaleDateString('de-DE');
+      const date = new Date(entry.started).toLocaleDateString('de-DE', { timeZone: timezone });
       
       if (!grouped.has(entry.author)) {
         grouped.set(entry.author, new Map());
@@ -396,7 +408,7 @@ class JiraTimesheetCLI {
       return disableChalk ? '📝 No worklogs found' : chalk.yellow('📝 No worklogs found');
     }
 
-    const groupedEntries = this.groupByUserAndDate(entries);
+    const groupedEntries = this.groupByUserAndDate(entries, this.config);
     let grandTotalSeconds = 0;
     let totalEntries = 0;
     let output = '';
@@ -500,7 +512,7 @@ class JiraTimesheetCLI {
     const headers = ['Date', 'User', 'Issue Key', 'Comment', 'Time Spent', 'Time (Seconds)', 'Started', 'Created'];
     const rows = [headers.join(',')];
 
-    const groupedEntries = this.groupByUserAndDate(entries);
+    const groupedEntries = this.groupByUserAndDate(entries, this.config);
 
     // Add data rows grouped by user and date
     for (const [author, userDateMap] of groupedEntries) {
@@ -559,7 +571,7 @@ class JiraTimesheetCLI {
       return '# Stundenzettel\n\n📝 No worklogs found';
     }
 
-    const groupedEntries = this.groupByUserAndDate(entries);
+    const groupedEntries = this.groupByUserAndDate(entries, this.config);
     let grandTotalSeconds = 0;
     let totalEntries = 0;
     let output = '';
@@ -1667,7 +1679,8 @@ class JiraTimesheetCLI {
     if (timesheetAnswers.enableTimesheetFeatures) {
       config.timesheet = {
         default_format: timesheetAnswers.defaultFormat,
-        group_by_user: timesheetAnswers.groupByUser
+        group_by_user: timesheetAnswers.groupByUser,
+        timezone: timezone
       };
     }
 

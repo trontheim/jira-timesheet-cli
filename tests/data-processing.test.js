@@ -160,7 +160,7 @@ describe('Data Processing', () => {
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
 
       expect(result.size).toBe(2);
       expect(result.has('User A')).toBe(true);
@@ -177,7 +177,7 @@ describe('Data Processing', () => {
     });
 
     it('should handle empty entries array', () => {
-      const result = cli.groupByUserAndDate([]);
+      const result = cli.groupByUserAndDate([], cli.config);
       expect(result.size).toBe(0);
     });
 
@@ -200,7 +200,7 @@ describe('Data Processing', () => {
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
 
       expect(result.size).toBe(1);
       const userADates = result.get('User A');
@@ -221,7 +221,7 @@ describe('Data Processing', () => {
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
 
       const userADates = result.get('User A');
       expect(userADates.has('1.1.2024')).toBe(true);
@@ -240,7 +240,7 @@ describe('Data Processing', () => {
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
 
       const userADates = result.get('User A');
       // Different timezones can result in different dates, so we expect 2 separate dates
@@ -259,8 +259,8 @@ describe('Data Processing', () => {
         })
       ];
 
-      expect(() => cli.groupByUserAndDate(entries)).not.toThrow();
-      const result = cli.groupByUserAndDate(entries);
+      expect(() => cli.groupByUserAndDate(entries, cli.config)).not.toThrow();
+      const result = cli.groupByUserAndDate(entries, cli.config);
       expect(result.size).toBe(1);
     });
 
@@ -276,7 +276,7 @@ describe('Data Processing', () => {
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
 
       expect(result.size).toBe(1);
       expect(result.has('John Doe')).toBe(true);
@@ -301,7 +301,7 @@ describe('Data Processing', () => {
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
       const dayEntries = result.get('User A').get('15.1.2024');
 
       expect(dayEntries[0].issueKey).toBe('FIRST');

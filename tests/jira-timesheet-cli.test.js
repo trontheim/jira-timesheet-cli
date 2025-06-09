@@ -215,7 +215,7 @@ project:
         })
       ];
 
-      const result = cli.groupByUserAndDate(entries);
+      const result = cli.groupByUserAndDate(entries, cli.config);
 
       expect(result.size).toBe(2);
       expect(result.has('User A')).toBe(true);
@@ -778,7 +778,7 @@ project:
 
     describe('groupByUserAndDate edge cases', () => {
       it('should handle empty entries array', () => {
-        const result = cli.groupByUserAndDate([]);
+        const result = cli.groupByUserAndDate([], cli.config);
         expect(result.size).toBe(0);
       });
 
@@ -794,7 +794,7 @@ project:
           })
         ];
 
-        const result = cli.groupByUserAndDate(entries);
+        const result = cli.groupByUserAndDate(entries, cli.config);
         
         expect(result.size).toBe(1);
         const userADates = result.get('User A');
@@ -811,7 +811,7 @@ project:
           })
         ];
 
-        expect(() => cli.groupByUserAndDate(entries)).not.toThrow();
+        expect(() => cli.groupByUserAndDate(entries, cli.config)).not.toThrow();
       });
     });
 

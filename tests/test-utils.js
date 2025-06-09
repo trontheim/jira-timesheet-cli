@@ -15,6 +15,11 @@ export const createMockJiraConfig = (overrides = {}) => ({
   project: {
     key: 'TEST'
   },
+  timesheet: {
+    timezone: 'Europe/Berlin',
+    default_format: 'table',
+    group_by_user: true
+  },
   ...overrides
 });
 
