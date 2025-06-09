@@ -17,6 +17,8 @@
     "bundle": "node esbuild.config.js",
     "build:binaries": "pkg dist/timesheet.bundle.js --config pkg.config.json",
     "prebuild:binaries": "npm run bundle",
+    "postbuild:binaries": "npm run build:binaries:rename",
+    "build:binaries:rename": "mv binaries/timesheet-macos-x64 binaries/timesheet-darwin-x64 && mv binaries/timesheet-macos-arm64 binaries/timesheet-darwin-arm64",
     "clean": "rm -rf dist binaries"
   },
   "keywords": [

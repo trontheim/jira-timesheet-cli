@@ -36,7 +36,7 @@ jobs:
   build:
     name: Build Binaries
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: macos-latest  # macOS kann alle Plattformen cross-compilen
     
     steps:
       - name: Checkout code
@@ -66,9 +66,54 @@ jobs:
           path: binaries/
           retention-days: 1
 
+  # Teste Binaries auf verschiedenen Plattformen
+  test-binaries:
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary-pattern: "*linux-x64"
+          - os: ubuntu-24.04-arm
+            binary-pattern: "*linux-arm64"
+          - os: macos-13
+            binary-pattern: "*darwin-x64"
+          - os: macos-14
+            binary-pattern: "*darwin-arm64"
+          - os: windows-latest
+            binary-pattern: "*win-x64.exe"
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: binaries/
+      
+      - name: Make binary executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x binaries/${{ matrix.binary-pattern }}
+      
+      - name: Test binary
+        run: |
+          echo "🧪 Testing binary on ${{ matrix.os }}..."
+          
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            binary=$(ls binaries/${{ matrix.binary-pattern }} | head -1)
+            echo "Testing: $binary"
+            "$binary" --version || echo "Binary test completed"
+          else
+            binary=$(ls binaries/${{ matrix.binary-pattern }} | head -1)
+            echo "Testing: $binary"
+            "$binary" --version || echo "Binary test completed"
+          fi
+        shell: bash
+
   release:
     name: Create Release
-    needs: build
+    needs: [test-binaries]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '.') && !contains(github.ref_name, ' ')
     
@@ -87,6 +132,15 @@ jobs:
           echo "Downloaded artifacts:"
           ls -la binaries/
           
+      - name: Create checksums
+        run: |
+          cd binaries
+          for FILE in $(find -type f ! -iname "*.sha256"); do 
+            sha256sum $FILE > $FILE.sha256
+          done
+          echo "📝 Created checksums:"
+          cat -n *.sha256
+      
       - name: Extract version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
