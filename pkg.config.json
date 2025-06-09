@@ -1,0 +1,25 @@
+{
+  "name": "timesheet",
+  "version": "1.0.0",
+  "description": "Cross-platform binaries for Timesheet CLI",
+  "main": "dist/timesheet.bundle.js",
+  "bin": "dist/timesheet.bundle.js",
+  "pkg": {
+    "scripts": [
+      "dist/timesheet.bundle.js"
+    ],
+    "assets": [],
+    "targets": [
+      "node18-linux-x64",
+      "node18-linux-arm64",
+      "node18-darwin-x64",
+      "node18-darwin-arm64",
+      "node18-win-x64",
+      "node18-win-arm64"
+    ],
+    "outputPath": "binaries",
+    "options": [
+      "--compress"
+    ]
+  }
+}

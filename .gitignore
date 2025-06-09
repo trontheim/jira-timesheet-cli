@@ -79,9 +79,14 @@ ehthumbs.db
 *.txt
 *.json
 !README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!DEPLOYMENT.md
 !package.json
 !package-lock.json
+!pkg.config.json
 !docs/*
+
 
 # Test coverage and reports
 coverage/
