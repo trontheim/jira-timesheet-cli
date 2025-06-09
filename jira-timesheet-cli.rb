@@ -8,24 +8,24 @@ class JiraTimesheetCli < Formula
   on_macos do
     on_intel do
       url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-darwin-x64"
-      sha256 "6de44898079e300e76cbbe4cfd3aebdf69a047e223baef8b5b2e81d54ea9cfce"
+      sha256 "967297c14cfcd34631c0502bb6f97db3ef357b6318a2ded281f12ceccc2eb507"
     end
     
     on_arm do
       url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-darwin-arm64"
-      sha256 "6713b41e4caecb4caef7a329153ef02e2072e27a49465a211fb55692b6f7fb9c"
+      sha256 "c1aab07c8ca0ba22a61dc8444e7a910fd1747ce9a4f77d18ad7877a4e2ce78fd"
     end
   end
   
   on_linux do
     on_intel do
       url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-linux-x64"
-      sha256 "2fa5d80311bce8dee3df6a25f2391397cdddd5e24dc0cad6043a6b8d95d8b2e7"
+      sha256 "8c1f8ec95440172fefe4a4c4ad947fd86d5da62081ce6143558057af425962a8"
     end
     
     on_arm do
       url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-linux-arm64"
-      sha256 "72db9d1d1025f69b658def4aaa70b260d20dc1348eab9ef84ee402721d9da3e3"
+      sha256 "4679a5aeecbcf332a2cae36deba94a327fba3c14f4d806c13286e4dabdfab18a"
     end
   end
   
@@ -34,12 +34,12 @@ class JiraTimesheetCli < Formula
   on_system :windows do
     on_intel do
       url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-win-x64.exe"
-      sha256 "fd2a1027a71038ee3013f3ea8bc79f837b53c0256c046501e7f23217e5506af9"
+      sha256 "409c79c45921fbaddb0f6ce6c905392ec001d7a329a98dcce57a77d195862a41"
     end
     
     on_arm do
       url "https://github.com/trontheim/jira-timesheet-cli/releases/download/v1.0.0/timesheet-win-arm64.exe"
-      sha256 "6dbffa25122ebb9f0ed0959105a6c5fd236375624f549c21c62bc67f87501540"
+      sha256 "cb57d57e08211b1a04a2f5b0268c1a79495483d41a997919ca9d5ef9cc625d37"
     end
   end
 
