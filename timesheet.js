@@ -1820,8 +1820,31 @@ program
 // Export for testing
 export { JiraTimesheetCLI };
 
+/**
+ * Check if JIRA_API_TOKEN environment variable is set
+ * This check is performed early to ensure the token is available before any API calls
+ */
+function checkJiraApiToken() {
+  if (!process.env.JIRA_API_TOKEN) {
+    console.error(chalk.red('❌ JIRA_API_TOKEN environment variable is not set.'));
+    console.error(chalk.yellow('💡 Please set your JIRA API token as an environment variable:'));
+    console.error(chalk.white('   export JIRA_API_TOKEN="your-api-token"'));
+    console.error(chalk.gray('\nFor Atlassian Cloud, create an API token at:'));
+    console.error(chalk.white('   https://id.atlassian.com/manage-profile/security/api-tokens'));
+    process.exit(1);
+  }
+}
+
 // Only run CLI if this file is executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // Check for JIRA_API_TOKEN early, but skip only for help commands or when no arguments are provided
+  const args = process.argv.slice(2);
+  const isHelpCommand = args.includes('--help') || args.includes('-h') || args.length === 0;
+  
+  if (!isHelpCommand) {
+    checkJiraApiToken();
+  }
+  
   program.parse(process.argv);
 
   if (!process.argv.slice(2).length) {

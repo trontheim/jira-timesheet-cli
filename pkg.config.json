@@ -1,6 +1,6 @@
 {
   "name": "timesheet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cross-platform binaries for Timesheet CLI",
   "main": "dist/timesheet.bundle.js",
   "bin": "dist/timesheet.bundle.js",

@@ -1,6 +1,6 @@
 {
   "name": "jira-timesheet-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CLI tool to generate timesheets from Jira worklogs via REST API",
   "type": "module",
   "main": "timesheet.js",
@@ -52,7 +52,7 @@
     "vitest": "^3.2.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.19.0"
   },
   "pkg": {
     "scripts": [
